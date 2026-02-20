@@ -1,0 +1,48 @@
+# .gitignore for ASP.NET Core / Node.js Backend API
+
+# IDE and Editor files
+.vs/
+.vscode/
+*.swp
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build and Output folders
+bin/
+obj/
+publish/
+dist/
+out/
+
+# Dependencies
+node_modules/
+jspm_packages/
+lib/
+
+# Environment secrets and configuration
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+appsettings.Development.json
+appsettings.Local.json
+
+# Databases and Logs
+*.db
+*.db-shm
+*.db-wal
+*.log
+logs/
+App_Data/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# User-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
