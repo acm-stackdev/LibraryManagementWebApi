@@ -4,8 +4,9 @@ namespace LibraryManagementSystem.Models
 {
     public class Wishlist
     {
-        public string UserId { get; set; }
+        public int WishlistId {get; set;}
 
+        public string UserId { get; set; }
         public int BookId { get; set; }
 
         public DateTime CreatedAt { get; set; }
