@@ -13,95 +13,89 @@ namespace BackendApi.Controllers
     [ApiController]
     public class AuthorController : ControllerBase
     {
-        private readonly LibraryContext _context;
+        private readonly IAuthorService _authorService;
+        private readonly ILogger<AuthorController> _logger;
 
-        public AuthorController(LibraryContext context)
+        public AuthorController(IAuthorService authorService, ILogger<AuthorController> logger)
         {
-            _context = context;
+            _authorService = authorService;
+            _logger = logger;
         }
 
         // GET: api/Author
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Author>>> GetAuthors()
         {
-            return await _context.Authors.ToListAsync();
+            try{
+                var authors = await _authorService.GetAllAsync();
+                if(!authors.Any()){
+                    return NotFound("No authors found");
+                }
+                return Ok(authors);
+            }catch(Exception ex){
+                _logger.LogError($"Error fetching authors: {ex.Message}");
+                return StatusCode(500, "Internal server error");
+            }
         }
 
         // GET: api/Author/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Author>> GetAuthor(int id)
         {
-            var author = await _context.Authors.FindAsync(id);
-
-            if (author == null)
-            {
-                return NotFound();
+            try{
+                var author = await _authorService.GetByIdAsync(id);
+                if(author == null){
+                    return NotFound($"Author with id {id} not found");
+                }
+                return Ok(author);
+            }catch(Exception ex){
+                _logger.LogError($"Error fetching author: {ex.Message}");
+                return StatusCode(500, "Internal server error");
             }
-
-            return author;
         }
 
         // PUT: api/Author/5
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutAuthor(int id, Author author)
+        public async Task<IActionResult> UpdateAuthor(int id, Author author)
         {
-            if (id != author.AuthorId)
-            {
-                return BadRequest();
-            }
-
-            _context.Entry(author).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!AuthorExists(id))
-                {
-                    return NotFound();
+            try{
+                if(id != author.AuthorId){
+                    return BadRequest("Author ID mismatch.");
                 }
-                else
-                {
-                    throw;
-                }
+                await _authorService.UpdateAsync(author);
+                return Ok(author);
+            }catch(Exception ex){
+                _logger.LogError($"Error updating author: {ex.Message}");
+                return StatusCode(500, "Internal server error");
             }
-
-            return NoContent();
         }
 
         // POST: api/Author
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
-        public async Task<ActionResult<Author>> PostAuthor(Author author)
+        public async Task<ActionResult<Author>> CreateAuthor(Author author)
         {
-            _context.Authors.Add(author);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetAuthor", new { id = author.AuthorId }, author);
+            try{
+                 var created = await _authorService.CreateAsync(author);
+                return CreatedAtAction(nameof(GetAuthor), new { id = created.AuthorId }, created);
+            }catch(Exception ex){
+                _logger.LogError($"Error creating author: {ex.Message}");
+                return StatusCode(500, "Internal server error");
+            }
         }
 
         // DELETE: api/Author/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteAuthor(int id)
         {
-            var author = await _context.Authors.FindAsync(id);
-            if (author == null)
-            {
-                return NotFound();
+            try{
+                await _authorService.DeleteAsync(id);
+                return Ok();
+            }catch(Exception ex){
+                _logger.LogError($"Error deleting author: {ex.Message}");
+                return StatusCode(500, "Internal server error");
             }
-
-            _context.Authors.Remove(author);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
-        }
-
-        private bool AuthorExists(int id)
-        {
-            return _context.Authors.Any(e => e.AuthorId == id);
         }
     }
 }

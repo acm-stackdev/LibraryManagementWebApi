@@ -13,32 +13,45 @@ namespace BackendApi.Controllers
     [ApiController]
     public class CategoryController : ControllerBase
     {
-        private readonly LibraryContext _context;
+        private readonly ICategoryService _categoryService;
+        private readonly ILogger<CategoryController> _logger;
 
-        public CategoryController(LibraryContext context)
+        public CategoryController(ICategoryService categoryService, ILogger<CategoryController> logger)
         {
-            _context = context;
+            _categoryService = categoryService;
+            _logger = logger;
         }
 
         // GET: api/Category
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Category>>> GetCategories()
         {
-            return await _context.Categories.ToListAsync();
+            try{
+                var categories = await _categoryService.GetAllAsync();
+                if(!categories.Any()){
+                    return NotFound("No categories found.");
+                }
+                return Ok(categories);
+            }catch(Exception ex){
+                _logger.LogError($"Error getting categories: {ex.Message}");
+                return StatusCode(500, "Internal server error");
+            }
         }
 
         // GET: api/Category/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Category>> GetCategory(int id)
         {
-            var category = await _context.Categories.FindAsync(id);
-
-            if (category == null)
-            {
-                return NotFound();
+           try{
+            var category = await _categoryService.GetByIdAsync(id);
+            if(category == null){
+                return NotFound($"Category not found with id: {id}");
             }
-
-            return category;
+            return Ok(category);
+           }catch(Exception ex){
+            _logger.LogError($"Error getting category: {ex.Message}");
+            return StatusCode(500, "Internal server error");
+           }
         }
 
         // PUT: api/Category/5
@@ -46,30 +59,16 @@ namespace BackendApi.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> PutCategory(int id, Category category)
         {
-            if (id != category.CategoryId)
-            {
-                return BadRequest();
+           try{
+            if(id != category.CategoryId){
+                return BadRequest("Category ID mismatch");
             }
-
-            _context.Entry(category).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!CategoryExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
+            await _categoryService.UpdateAsync(category);
             return NoContent();
+           }catch(Exception ex){
+            _logger.LogError($"Error updating category: {ex.Message}");
+            return StatusCode(500, "Internal server error");
+           }
         }
 
         // POST: api/Category
@@ -77,31 +76,27 @@ namespace BackendApi.Controllers
         [HttpPost]
         public async Task<ActionResult<Category>> PostCategory(Category category)
         {
-            _context.Categories.Add(category);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetCategory", new { id = category.CategoryId }, category);
+           try{
+            var newCategory = await _categoryService.CreateAsync(category);
+            return CreatedAtAction(nameof(GetCategory), new{id = newCategory.CategoryId}, newCategory);
+           }catch(Exception ex){
+            _logger.LogError($"Error creating category: {ex.Message}");
+            return StatusCode(500, "Internal server error");
+           }
         }
 
         // DELETE: api/Category/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCategory(int id)
         {
-            var category = await _context.Categories.FindAsync(id);
-            if (category == null)
-            {
-                return NotFound();
+            try{
+                await _categoryService.DeleteAsync(id);
+                return NoContent();
+            }catch(Exception ex){
+                _logger.LogError($"Error deleting category: {ex.Message}");
+                return StatusCode(500, "Internal server error");
             }
-
-            _context.Categories.Remove(category);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
         }
 
-        private bool CategoryExists(int id)
-        {
-            return _context.Categories.Any(e => e.CategoryId == id);
-        }
     }
 }

@@ -13,6 +13,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddControllers();
+builder.Services.AddScoped<IBookService, BookService>();
+builder.Services.AddScoped<IAuthorService, AuthorService>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<IBorrowRecordService, BorrowRecordService>();
+builder.Services.AddScoped<IWishlistService, WishlistService>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+
 
 builder.Services.AddDbContext<LibraryContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("Connection")));

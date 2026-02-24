@@ -28,19 +28,35 @@ public class BorrowRecordService : IBorrowRecordService
 
     public async Task<BorrowRecord> BorrowBookAsync(string userId, int bookId)
     {
-        var user = await _context.Users
-            .Include(u => u.Subscription)
-            .FirstOrDefaultAsync(u => u.Id == userId);
+        var subscription = await _context.Subscription
+            .FirstOrDefaultAsync(s => s.UserId == userId && s.IsActive);
 
-        if (user?.Subscription == null || user.Subscription.EndDate < DateTime.Now)
+        if (subscription == null || subscription.EndDate < DateTime.Now){
             throw new Exception("User does not have a valid subscription.");
+        }
+
+        var activeBorrowsCount = await _context.BorrowRecords
+            .CountAsync(b => b.UserId == userId && b.ReturnDate == null);
+
+        if (activeBorrowsCount >= subscription.MaxBorrowCount){
+            throw new Exception("User has reached the maximum number of active borrows.");
+        }
+
+        var alreadyBorrowed = await _context.BorrowRecords
+            .FirstOrDefaultAsync(b => b.UserId == userId && b.BookId == bookId && b.ReturnDate == null);
+
+        if (alreadyBorrowed != null){
+            throw new Exception("You have already borrowed this book.");
+        }
+
+
 
         var borrowRecord = new BorrowRecord
         {
             UserId = userId,
             BookId = bookId,
             BorrowDate = DateTime.Now,
-            DueDate = DateTime.Now.AddDays(user.Subscription.BorrowDurationDays)
+            DueDate = DateTime.Now.AddDays(subscription.BorrowDurationDays)
         };
 
         _context.BorrowRecords.Add(borrowRecord);
@@ -54,8 +70,20 @@ public class BorrowRecordService : IBorrowRecordService
         var record = await _context.BorrowRecords.FindAsync(borrowRecordId);
         if (record == null) throw new Exception("Borrow record not found.");
 
+        if (record.ReturnDate != null){
+            throw new Exception("Book has already been returned.");
+        }
+
         record.ReturnDate = DateTime.Now;
         _context.Entry(record).State = EntityState.Modified;
         await _context.SaveChangesAsync();
+    }
+
+    public async Task<IEnumerable<BorowRecord>> GetBorrowRecordsByUserIdAsync(string userId)
+    {
+        return await _context.BorrowRecords
+        .Include(b => b.Book)
+        .Where(b => b.UserId == userId)
+        .ToListAsync();
     }
 }

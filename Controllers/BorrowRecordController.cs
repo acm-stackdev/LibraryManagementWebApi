@@ -13,95 +13,77 @@ namespace BackendApi.Controllers
     [ApiController]
     public class BorrowRecordController : ControllerBase
     {
-        private readonly LibraryContext _context;
+        private readonly IBorrowRecordService _borrowRecordService;
+        private readonly ILogger<BorrowRecordController> _logger;
 
-        public BorrowRecordController(LibraryContext context)
+        public BorrowRecordController(IBorrowRecordService borrowRecordService, ILogger<BorrowRecordController> logger)
         {
-            _context = context;
+            _borrowRecordService = borrowRecordService;
+            _logger = logger;
         }
 
         // GET: api/BorrowRecord
         [HttpGet]
         public async Task<ActionResult<IEnumerable<BorrowRecord>>> GetBorrowRecords()
         {
-            return await _context.BorrowRecords.ToListAsync();
-        }
-
-        // GET: api/BorrowRecord/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<BorrowRecord>> GetBorrowRecord(int id)
-        {
-            var borrowRecord = await _context.BorrowRecords.FindAsync(id);
-
-            if (borrowRecord == null)
-            {
-                return NotFound();
-            }
-
-            return borrowRecord;
-        }
-
-        // PUT: api/BorrowRecord/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutBorrowRecord(int id, BorrowRecord borrowRecord)
-        {
-            if (id != borrowRecord.BorrowRecordId)
-            {
-                return BadRequest();
-            }
-
-            _context.Entry(borrowRecord).State = EntityState.Modified;
-
             try
             {
-                await _context.SaveChangesAsync();
+                var records = await _borrowRecordService.GetAllAsync();
+                return Ok(records);
             }
-            catch (DbUpdateConcurrencyException)
+            catch(Exception ex)
             {
-                if (!BorrowRecordExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                _logger.LogError($"Error getting borrow records: {ex.Message}");
+                return StatusCode(500, "Internal server error");
             }
-
-            return NoContent();
         }
 
-        // POST: api/BorrowRecord
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPost]
-        public async Task<ActionResult<BorrowRecord>> PostBorrowRecord(BorrowRecord borrowRecord)
+        // GET: api/BorrowRecord/user/{userId}
+        [HttpGet("user/{userId}")]
+        public async Task<ActionResult<IEnumerable<BorrowRecord>> >GetUserBorrowHistory(string userId)
         {
-            _context.BorrowRecords.Add(borrowRecord);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetBorrowRecord", new { id = borrowRecord.BorrowRecordId }, borrowRecord);
-        }
-
-        // DELETE: api/BorrowRecord/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteBorrowRecord(int id)
-        {
-            var borrowRecord = await _context.BorrowRecords.FindAsync(id);
-            if (borrowRecord == null)
+            try
             {
-                return NotFound();
+                var records = await _borrowRecordService.GetAllAsync();
+                return Ok(records.Where(r => r.UserId == userId));
             }
-
-            _context.BorrowRecords.Remove(borrowRecord);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            catch(Exception ex)
+            {
+                _logger.LogError($"Error getting borrow records for user {userId}: {ex.Message}");
+                return StatusCode(500, "Internal server error");
+            }
         }
 
-        private bool BorrowRecordExists(int id)
+        // Borrow: api/BorrowRecord/borrow/{userId}/{bookId}
+
+        [HttpPost("borrow/{userId}/{bookId}")]
+        public async Task<ActionResult<BorrowRecord>> BorrowBook(string userId, int bookId)
         {
-            return _context.BorrowRecords.Any(e => e.BorrowRecordId == id);
+           try{
+            var record = await _borrowRecordService.BorrowBookAsync(userId, bookId);
+            return _logger.LogInformation($"User {userId} borrowed book {bookId} successfully.");
+           }
+           catch(Exception ex){
+            _logger.LogError($"Error borrowing book: {ex.Message}");
+            return StatusCode(500, "Internal server error");
+           }
         }
+
+        // Return: api/BorrowRecord/return/5
+        [HttpDelete("return/{id}")]
+        public async Task<IActionResult> ReturnBook(int id)
+        {
+            try
+            {
+                await _borrowRecordService.ReturnBookAsync(id);
+                return _logger.LogInformation($"Book {id} returned successfully.");
+            }
+            catch(Exception ex)
+            {
+                _logger.LogError(ex, $"Error returning book for record {id}");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
     }
 }

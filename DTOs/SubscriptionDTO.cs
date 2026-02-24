@@ -7,7 +7,7 @@ namespace LibraryManagementSystem.DTOs{
         public int SubscriptionId { get; set; }
         
         [Required]
-        public int UserId { get; set; }
+        public string UserId { get; set; }
         
         [Required]
         public int MaxBorrowLimit { get; set; }
@@ -20,5 +20,8 @@ namespace LibraryManagementSystem.DTOs{
 
         [Required]
         public DateTime EndDate { get; set; }
+
+        [Required]
+        public bool IsActive { get; set; }
     }
 }

@@ -13,95 +13,77 @@ namespace BackendApi.Controllers
     [ApiController]
     public class WishlistController : ControllerBase
     {
-        private readonly LibraryContext _context;
+        private readonly IWishlistService _wishlistService;
+        private readonly ILogger<WishlistController> _logger;
 
-        public WishlistController(LibraryContext context)
+        public WishlistController(IWishlistService wishlistService, ILogger<WishlistController> logger)
         {
-            _context = context;
+            _wishlistService = wishlistService;
+            _logger = logger;
         }
 
         // GET: api/Wishlist
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Wishlist>>> GetWishlists()
+        public async Task<ActionResult<IEnumerable<Wishlist>>> GetWishlists(string userId)
         {
-            return await _context.Wishlists.ToListAsync();
-        }
-
-        // GET: api/Wishlist/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Wishlist>> GetWishlist(int id)
-        {
-            var wishlist = await _context.Wishlists.FindAsync(id);
-
-            if (wishlist == null)
-            {
-                return NotFound();
-            }
-
-            return wishlist;
-        }
-
-        // PUT: api/Wishlist/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutWishlist(int id, Wishlist wishlist)
-        {
-            if (id != wishlist.WishlistId)
-            {
-                return BadRequest();
-            }
-
-            _context.Entry(wishlist).State = EntityState.Modified;
-
             try
             {
-                await _context.SaveChangesAsync();
+                var items = await _wishlistService.GetAllAsync();
+                return Ok(items);
             }
-            catch (DbUpdateConcurrencyException)
+            catch (Exception ex)
             {
-                if (!WishlistExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                _logger.LogError(ex, "Error getting wishlists items.");
+                return StatusCode(500, "Internal server error");
             }
+        }
 
-            return NoContent();
+        // GET: api/Wishlist/user/{userId}
+        [HttpGet("user/{userId}")]
+        public async Task<ActionResult<Wishlist>> GetUserWishlist(string userId)
+        {
+           try
+           {
+                var items = await _wishlistService.GetWishlistAsync(userId); 
+                return Ok(items);           
+           }catch (Exception ex)
+           {
+                _logger.LogError(ex, $"Error fetching wishlist for user {userId}.");
+                return StatusCode(500, "Internal server error");
+           }
         }
 
         // POST: api/Wishlist
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
-        public async Task<ActionResult<Wishlist>> PostWishlist(Wishlist wishlist)
+        public async Task<ActionResult<Wishlist>> AddToWishlist([FromBody] WishlistRequestDto request)
         {
-            _context.Wishlists.Add(wishlist);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetWishlist", new { id = wishlist.WishlistId }, wishlist);
+            try
+            {
+                var item = await _wishlistService
+                 .AddToWishlistAsync(request.UserId, request.BookId);
+                 return CreatedAtAction(nameof(GetUserWishlist), new { userId = request.UserId }, item);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error adding book {request.BookId} to wishlist for user {request.UserId}.");
+                return StatusCode(500, "Internal server error");
+            }
         }
 
         // DELETE: api/Wishlist/5
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteWishlist(int id)
+        public async Task<IActionResult> RemoveFromWishlist(int id)
         {
-            var wishlist = await _context.Wishlists.FindAsync(id);
-            if (wishlist == null)
-            {
-                return NotFound();
-            }
-
-            _context.Wishlists.Remove(wishlist);
-            await _context.SaveChangesAsync();
-
+           try
+           {
+            await _wishlistService.RemoveFromWishlist(id);
             return NoContent();
-        }
-
-        private bool WishlistExists(int id)
-        {
-            return _context.Wishlists.Any(e => e.WishlistId == id);
+           }
+           catch (Exception ex)
+           {
+                _logger.LogError(ex, $"Error removing book {id} from wishlist.");
+                return StatusCode(500, "Internal server error");
+           }
         }
     }
 }

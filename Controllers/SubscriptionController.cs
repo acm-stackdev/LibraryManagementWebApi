@@ -13,95 +13,96 @@ namespace BackendApi.Controllers
     [ApiController]
     public class SubscriptionController : ControllerBase
     {
-        private readonly LibraryContext _context;
+        private readonly ISubscriptionService _subscriptionService;
+        public readonly ILogger<SubscriptionController> _logger;
 
-        public SubscriptionController(LibraryContext context)
+        public SubscriptionController(ISubscriptionService subscriptionService, ILogger<SubscriptionController> logger)
         {
-            _context = context;
+            _subscriptionService = subscriptionService;
+            _logger = logger;
         }
 
         // GET: api/Subscription
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Subscription>>> GetSubscriptions()
         {
-            return await _context.Subscriptions.ToListAsync();
+            try
+            {
+                var subscription = await _subscriptionService.GetAllAsync();
+                return Ok(subscription);
+            }catch(Exception ex)
+            {
+                _logger.LogError($"Error fetching subscriptions: {ex.Message}");
+                return StatusCode(500, "Internal server error");
+            }
         }
 
         // GET: api/Subscription/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Subscription>> GetSubscription(int id)
         {
-            var subscription = await _context.Subscriptions.FindAsync(id);
-
-            if (subscription == null)
+            try
             {
-                return NotFound();
+                var subscription = await _subscriptionService.GetByIdAsync(id);
+                if(subscription == null) return NotFound();
+                return Ok(subscription);
+            }catch(Exception ex)
+            {
+                _logger.LogError($"Error fetching subscription: {ex.Message}");
+                return StatusCode(500, "Internal server error");
             }
-
-            return subscription;
         }
 
         // PUT: api/Subscription/5
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutSubscription(int id, Subscription subscription)
+        public async Task<IActionResult> UpdateSubscription(int id, Subscription subscription)
         {
             if (id != subscription.SubscriptionId)
             {
                 return BadRequest();
             }
 
-            _context.Entry(subscription).State = EntityState.Modified;
-
             try
             {
-                await _context.SaveChangesAsync();
+                await _subscriptionService.UpdateAsync(subscription);
+                return _logger.LogInformation($"Subscription updated successfully: {subscription.SubscriptionId}");
             }
-            catch (DbUpdateConcurrencyException)
+            catch (Exception ex)
             {
-                if (!SubscriptionExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                _logger.LogError($"Error updating subscription: {ex.Message}");
+                return StatusCode(500, "Internal server error");
             }
-
-            return NoContent();
         }
 
         // POST: api/Subscription
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
-        public async Task<ActionResult<Subscription>> PostSubscription(Subscription subscription)
+        public async Task<ActionResult<Subscription>> CreateSubscription([FromBody] Subscription subscription)
         {
-            _context.Subscriptions.Add(subscription);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetSubscription", new { id = subscription.SubscriptionId }, subscription);
+            try
+            {
+                var newSubscription = await _subscriptionService.createAsync(subscription);
+                return CreatedAtAction(nameof(GetSubscription), new {id = newSubscription.SubscriptionId}, newSubscription);
+            }catch(Exception ex)
+            {
+                _logger.LogError($"Error creating subscription for user {subscription.UserId}.");
+                return StatusCode(500, "Internal server error");
+            }
         }
 
         // DELETE: api/Subscription/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteSubscription(int id)
         {
-            var subscription = await _context.Subscriptions.FindAsync(id);
-            if (subscription == null)
+            try
             {
-                return NotFound();
+                await _subscriptionService.DeleteAsync(id);
+                return NoContent();
+            }catch(Exception ex)
+            {
+                _logger.LogError($"Error deleting subscription for user {id}");
+                return StatusCode(500, "Internal server error");
             }
-
-            _context.Subscriptions.Remove(subscription);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
-        }
-
-        private bool SubscriptionExists(int id)
-        {
-            return _context.Subscriptions.Any(e => e.SubscriptionId == id);
         }
     }
 }
