@@ -24,7 +24,7 @@ namespace BackendApi.Controllers
 
         // GET: api/Wishlist
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Wishlist>>> GetWishlists(string userId)
+        public async Task<ActionResult<IEnumerable<Wishlist>>> GetWishlists()
         {
             try
             {
@@ -44,7 +44,7 @@ namespace BackendApi.Controllers
         {
            try
            {
-                var items = await _wishlistService.GetWishlistAsync(userId); 
+                var items = await _wishlistService.GetWishlistByUserIdAsync(userId); 
                 return Ok(items);           
            }catch (Exception ex)
            {
@@ -53,19 +53,19 @@ namespace BackendApi.Controllers
            }
         }
 
-        // POST: api/Wishlist
-        [HttpPost]
-        public async Task<ActionResult<Wishlist>> AddToWishlist([FromBody] WishlistRequestDto request)
+        // POST: api/Wishlist/{userId}/{bookId}
+        [HttpPost("{userId}/{bookId}")]
+        public async Task<ActionResult<Wishlist>> AddToWishlist(string userId, int bookId)
         {
             try
             {
                 var item = await _wishlistService
-                 .AddToWishlistAsync(request.UserId, request.BookId);
-                 return CreatedAtAction(nameof(GetUserWishlist), new { userId = request.UserId }, item);
+                 .AddToWishlistAsync(userId, bookId);
+                 return CreatedAtAction(nameof(GetUserWishlist), new { userId }, item);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error adding book {request.BookId} to wishlist for user {request.UserId}.");
+                _logger.LogError(ex, $"Error adding book {bookId} to wishlist for user {userId}.");
                 return StatusCode(500, "Internal server error");
             }
         }
@@ -76,7 +76,7 @@ namespace BackendApi.Controllers
         {
            try
            {
-            await _wishlistService.RemoveFromWishlist(id);
+            await _wishlistService.RemoveFromWishlistAsync(id);
             return NoContent();
            }
            catch (Exception ex)

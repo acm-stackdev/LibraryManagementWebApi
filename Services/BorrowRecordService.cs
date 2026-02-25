@@ -28,7 +28,7 @@ public class BorrowRecordService : IBorrowRecordService
 
     public async Task<BorrowRecord> BorrowBookAsync(string userId, int bookId)
     {
-        var subscription = await _context.Subscription
+        var subscription = await _context.Subscriptions
             .FirstOrDefaultAsync(s => s.UserId == userId && s.IsActive);
 
         if (subscription == null || subscription.EndDate < DateTime.Now){
@@ -38,7 +38,7 @@ public class BorrowRecordService : IBorrowRecordService
         var activeBorrowsCount = await _context.BorrowRecords
             .CountAsync(b => b.UserId == userId && b.ReturnDate == null);
 
-        if (activeBorrowsCount >= subscription.MaxBorrowCount){
+        if (activeBorrowsCount >= subscription.MaxBorrowLimit){
             throw new Exception("User has reached the maximum number of active borrows.");
         }
 
@@ -79,11 +79,10 @@ public class BorrowRecordService : IBorrowRecordService
         await _context.SaveChangesAsync();
     }
 
-    public async Task<IEnumerable<BorowRecord>> GetBorrowRecordsByUserIdAsync(string userId)
+    public async Task<IEnumerable<BorrowRecord>> GetBorrowRecordsByUserIdAsync(string userId)
     {
         return await _context.BorrowRecords
-        .Include(b => b.Book)
-        .Where(b => b.UserId == userId)
-        .ToListAsync();
+                     .Where(r => r.UserId == userId)
+                     .ToListAsync();
     }
 }

@@ -26,6 +26,14 @@ public class WishlistService : IWishlistService
             .FirstOrDefaultAsync(w => w.BookId == id);
     }
 
+    public async Task<IEnumerable<Wishlist>> GetWishlistByUserIdAsync(string userId)
+    {
+        return await _context.Wishlists
+            .Where(w => w.UserId == userId)
+            .Include(w => w.Book)
+            .ToListAsync();
+    }
+
     public async Task<Wishlist> AddToWishlistAsync(string userId, int bookId)
     {
         // Check if the book is already in the wishlist

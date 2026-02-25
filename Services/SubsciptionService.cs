@@ -1,14 +1,17 @@
 using LibraryManagementSystem.Models;
 using LibraryManagementSystem.DTOs;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
-public class SubscriptionSerive : ISubscriptionService
+public class SubscriptionService : ISubscriptionService
 {
-    public readonly LibraryDbContext _context;
+    public readonly LibraryContext _context;
+    public readonly ILogger<SubscriptionService> _logger;
 
-    public SubscriptionSerive(LibraryDbContext context)
+    public SubscriptionService(LibraryContext context, ILogger<SubscriptionService> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     public async Task<IEnumerable<Subscription>> GetAllAsync()
@@ -25,7 +28,15 @@ public class SubscriptionSerive : ISubscriptionService
             .FirstOrDefaultAsync(s => s.SubscriptionId == id);
     }
 
-    public async Task<Subscription> CreateAsync(Subscription dto){
+    public async Task<Subscription?> GetByUserIdAsync(string userId)
+    {
+        return await _context.Subscriptions
+            .Include(s => s.User)
+            .FirstOrDefaultAsync(s => s.UserId == userId);
+    }
+
+    public async Task<Subscription> CreateAsync(SubscriptionDTO dto)
+    {
         var existing = await _context.Subscriptions
             .FirstOrDefaultAsync(s => s.UserId == dto.UserId && s.IsActive);
         if(existing != null){
@@ -38,7 +49,7 @@ public class SubscriptionSerive : ISubscriptionService
          BorrowDurationDays = dto.BorrowDurationDays,
          StartDate = DateTime.Now,
          EndDate = DateTime.Now.AddMonths(1),
-         IsActive = true   
+         IsActive = dto.IsActive   
         };
         _context.Subscriptions.Add(subscription);
         await _context.SaveChangesAsync();

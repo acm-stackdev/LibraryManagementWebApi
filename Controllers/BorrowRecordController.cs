@@ -44,8 +44,8 @@ namespace BackendApi.Controllers
         {
             try
             {
-                var records = await _borrowRecordService.GetAllAsync();
-                return Ok(records.Where(r => r.UserId == userId));
+                var records = await _borrowRecordService.GetBorrowRecordsByUserIdAsync(userId);
+                return Ok(records);
             }
             catch(Exception ex)
             {
@@ -61,7 +61,8 @@ namespace BackendApi.Controllers
         {
            try{
             var record = await _borrowRecordService.BorrowBookAsync(userId, bookId);
-            return _logger.LogInformation($"User {userId} borrowed book {bookId} successfully.");
+            _logger.LogInformation($"User {userId} borrowed book {bookId} successfully.");
+            return Ok(record);
            }
            catch(Exception ex){
             _logger.LogError($"Error borrowing book: {ex.Message}");
@@ -76,7 +77,8 @@ namespace BackendApi.Controllers
             try
             {
                 await _borrowRecordService.ReturnBookAsync(id);
-                return _logger.LogInformation($"Book {id} returned successfully.");
+                _logger.LogInformation($"Book {id} returned successfully.");
+                return NoContent();
             }
             catch(Exception ex)
             {

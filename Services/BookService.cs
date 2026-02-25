@@ -30,32 +30,53 @@ public class BookService : IBookService
             .FirstOrDefaultAsync(b => b.BookId == id);
     }
 
-    // Create a new book and handle authors and category
-    public async Task<Book> CreateBookAsync(Book book,string categoryName, List<string> authorNames)
+    public async Task<Book> CreateBookAsync(Book book, List<string> authorNames)
     {
+        var categoryName = book.Category?.Name;
+        if (string.IsNullOrWhiteSpace(categoryName))
+        {
+            if (book.CategoryId != 0)
+            {
+                categoryName = await _context.Categories
+                    .Where(c => c.CategoryId == book.CategoryId)
+                    .Select(c => c.Name)
+                    .FirstOrDefaultAsync();
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(categoryName))
+        {
+            throw new ArgumentException("Category name is required to create a book.");
+        }
+
+        return await CreateBookAsync(book, categoryName, authorNames);
+    }
+
+    // Create a new book and handle authors and category
+    public async Task<Book> CreateBookAsync(Book book, string categoryName, List<string> authorNames)
+    {
+
+        var category = await _context.Categories
+            .FirstOrDefaultAsync(c => c.Name == categoryName);
+
+        if (category == null)
+        {
+            category = new Category { Name = categoryName };
+            _context.Categories.Add(category);
+            await _context.SaveChangesAsync();
+        }
+
+        book.CategoryId = category.CategoryId;
 
         book.BookAuthors = new List<BookAuthor>();
 
         foreach (var name in authorNames)
         {
-            var category = await _context.Categories
-                .FirstOrDefaultAsync(c => c.Name == categoryName);
-                
-            if(category == null)    
-            {
-                var newCategory = new Category { Name = categoryName };
-                _context.Categories.Add(newCategory);
-                await _context.SaveChangesAsync();
-            }
-
-            book.CategoryId = category.CategoryId;
-
             var existingAuthor = await _context.Authors
                 .FirstOrDefaultAsync(a => a.Name.ToLower() == name.ToLower());
 
             if (existingAuthor == null)
             {
-
                 var newAuthor = new Author { Name = name };
                 _context.Authors.Add(newAuthor);
                 await _context.SaveChangesAsync();
@@ -114,6 +135,28 @@ public class BookService : IBookService
         // Update book entity
         _context.Entry(book).State = EntityState.Modified;
         await _context.SaveChangesAsync();
+    }
+
+    public async Task UpdateBookAsync(Book book, List<string> authorNames)
+    {
+        var categoryName = book.Category?.Name;
+        if (string.IsNullOrWhiteSpace(categoryName))
+        {
+            if (book.CategoryId != 0)
+            {
+                categoryName = await _context.Categories
+                    .Where(c => c.CategoryId == book.CategoryId)
+                    .Select(c => c.Name)
+                    .FirstOrDefaultAsync();
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(categoryName))
+        {
+            throw new ArgumentException("Category name is required to update a book.");
+        }
+
+        await UpdateBookAsync(book, categoryName, authorNames);
     }
 
     // Delete a book

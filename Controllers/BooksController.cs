@@ -28,8 +28,8 @@ namespace BackendApi.Controllers
         {
             try{
                 _logger.LogInformation("Getting all books with related data.");
-                var books = await _bookService.GetAllBooksAsync();
-                if(!book.Any()){
+                var books = await _bookService.GetAllAsync();
+                if(!books.Any()){
                     _logger.LogWarning("No books found.");
                     return NotFound("No books found.");
                 }
@@ -73,7 +73,7 @@ namespace BackendApi.Controllers
                     return BadRequest("Book ID mismatch.");
                 }
 
-                await _bookService.UpdateAsync(book);
+                await _bookService.UpdateBookAsync(book, new List<string>());
                 _logger.LogInformation($"Book with ID {id} updated.");
                 return NoContent();
             }
@@ -95,7 +95,7 @@ namespace BackendApi.Controllers
                     return BadRequest("Book cannot be null.");
                 }
 
-                var createdBook = await _bookService.CreateBookAsync(book);
+                var createdBook = await _bookService.CreateBookAsync(book, new List<string>());
                 _logger.LogInformation($"Book with ID{createdBook.BookId} created successfully.");
                 return CreatedAtAction(nameof(GetBook), new {id = createdBook.BookId}, createdBook);
                 
@@ -112,7 +112,7 @@ namespace BackendApi.Controllers
         {
            try
             {
-                await _bookService.DeleteAsync(id);
+                await _bookService.DeleteBookAsync(id);
                 _logger.LogInformation($"Book with ID {id} deleted.");
                 return NoContent();
             }

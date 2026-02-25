@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using LibraryManagementSystem.Models;
+using LibraryManagementSystem.DTOs;
 
 namespace BackendApi.Controllers
 {
@@ -56,17 +57,18 @@ namespace BackendApi.Controllers
         // PUT: api/Subscription/5
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateSubscription(int id, Subscription subscription)
+        public async Task<IActionResult> UpdateSubscription(int id, SubscriptionDTO dto)
         {
-            if (id != subscription.SubscriptionId)
+            if (id != dto.SubscriptionId)
             {
                 return BadRequest();
             }
 
             try
             {
-                await _subscriptionService.UpdateAsync(subscription);
-                return _logger.LogInformation($"Subscription updated successfully: {subscription.SubscriptionId}");
+                await _subscriptionService.UpdateAsync(id, dto);
+                _logger.LogInformation($"Subscription updated successfully: {id}");
+                return NoContent();
             }
             catch (Exception ex)
             {
@@ -77,15 +79,15 @@ namespace BackendApi.Controllers
 
         // POST: api/Subscription
         [HttpPost]
-        public async Task<ActionResult<Subscription>> CreateSubscription([FromBody] Subscription subscription)
+        public async Task<ActionResult<Subscription>> CreateSubscription([FromBody] SubscriptionDTO dto)
         {
             try
             {
-                var newSubscription = await _subscriptionService.createAsync(subscription);
+                var newSubscription = await _subscriptionService.CreateAsync(dto);
                 return CreatedAtAction(nameof(GetSubscription), new {id = newSubscription.SubscriptionId}, newSubscription);
             }catch(Exception ex)
             {
-                _logger.LogError($"Error creating subscription for user {subscription.UserId}.");
+                _logger.LogError($"Error creating subscription for user {dto.UserId}.");
                 return StatusCode(500, "Internal server error");
             }
         }
