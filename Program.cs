@@ -19,6 +19,15 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IBorrowRecordService, BorrowRecordService>();
 builder.Services.AddScoped<IWishlistService, WishlistService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.Configure<EmailSettings>(options =>
+{
+    options.SmtpServer = builder.Configuration["EmailSettings:SmtpServer"];
+    options.SmtpPort = int.Parse(builder.Configuration["EmailSettings:SmtpPort"]);
+    options.SmtpUsername = Environment.GetEnvironmentVariable("SMTP_USERNAME") ?? "";
+    options.SmtpPassword = Environment.GetEnvironmentVariable("SMTP_PASSWORD") ?? "";
+});
+builder.Services.AddScoped<EmailService>();
+
 
 
 builder.Services.AddDbContext<LibraryContext>(options =>

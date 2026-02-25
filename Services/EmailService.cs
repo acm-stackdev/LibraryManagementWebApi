@@ -1,0 +1,32 @@
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using MimeKit;
+using Microsoft.Extensions.Options;
+using LibraryManagementSystem.Models;
+
+namespace LibraryManagementSystem.Services;
+
+public class EmailService
+{
+    private readonly EmailSettings _emailSettings;
+
+    public EmailService(IOptions<EmailSettings> emailSettings)
+    {
+        _emailSettings = emailSettings.Value;
+    }
+
+    public void SendEmail(string toEmail, string subject, string body)
+    {
+        var message = new MimeMessage();
+        message.From.Add(new MailboxAddress("Support Library System", _emailSettings.SmtpUsername));
+        message.To.Add(MailboxAddress.Parse(toEmail));
+        message.Subject = subject;
+        message.Body = new TextPart("plain") { Text = body };
+
+        using var client = new SmtpClient();
+        client.Connect(_emailSettings.SmtpServer, _emailSettings.SmtpPort, SecureSocketOptions.StartTls);
+        client.Authenticate(_emailSettings.SmtpUsername, _emailSettings.SmtpPassword);
+        client.Send(message);
+        client.Disconnect(true);
+    }
+}
