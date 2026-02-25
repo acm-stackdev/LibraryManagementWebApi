@@ -5,7 +5,7 @@ using LibraryManagementSystem.Models;
 
 namespace LibraryManagementSystem.Models
 {
-    public class LibraryContext : DbContext
+    public class LibraryContext : IdentityDbContext<AppUser>
     {
         public LibraryContext(DbContextOptions<LibraryContext> options) : base(options)
         {
