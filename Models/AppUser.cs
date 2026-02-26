@@ -8,7 +8,6 @@ namespace LibraryManagementSystem.Models
     {
         public string Name { get; set; }
 
-        // Navigation to business info
         [JsonIgnore]
         public Subscription? Subscription { get; set; }
 

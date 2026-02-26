@@ -4,7 +4,7 @@ using MimeKit;
 using Microsoft.Extensions.Options;
 using LibraryManagementSystem.Models;
 
-namespace LibraryManagementSystem.Services;
+namespace BackendApi.Services;
 
 public class EmailService
 {
@@ -21,7 +21,7 @@ public class EmailService
         message.From.Add(new MailboxAddress("Support Library System", _emailSettings.SmtpUsername));
         message.To.Add(MailboxAddress.Parse(toEmail));
         message.Subject = subject;
-        message.Body = new TextPart("plain") { Text = body };
+        message.Body = new TextPart("html") { Text = body };
 
         using var client = new SmtpClient();
         client.Connect(_emailSettings.SmtpServer, _emailSettings.SmtpPort, SecureSocketOptions.StartTls);

@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using LibraryManagementSystem.Models;
 using DotNetEnv;
+using BackendApi.Services;
 
 Env.Load();
 
@@ -59,6 +60,46 @@ builder.Services.AddIdentity<AppUser, IdentityRole>()
 });
 
 var app = builder.Build();
+
+
+// Create roles before running the app
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+
+    string[] roles = { "Admin", "User", "Member"};
+
+
+    //creating roles for the first time
+    foreach (var role in roles)
+    {
+        if(!await roleManager.RoleExistsAsync(role))
+        {
+            await roleManager.CreateAsync(new IdentityRole(role));
+        }
+    }
+
+    //creating admin user for the first run
+    var adminEmail = "admin@library.com";
+    var adminUser = await userManager.FindByEmailAsync(adminEmail);
+    if(adminUser == null)
+    {
+      var newAdmin = new AppUser
+      {
+        UserName = adminEmail,
+        Email = adminEmail,
+        Name = "Admin",
+        EmailConfirmed = true,
+      };
+
+      var result = await userManager.CreateAsync(newAdmin, "Admin@1234");
+      if(result.Succeeded)
+      {
+        await userManager.AddToRoleAsync(newAdmin, "Admin");
+      }   
+    }
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
