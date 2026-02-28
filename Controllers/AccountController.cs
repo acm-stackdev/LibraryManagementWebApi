@@ -13,6 +13,7 @@ using System.Text;
 using System.Threading.Tasks;
 using BackendApi.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 
 namespace BackendApi.Controllers
 {
@@ -22,13 +23,15 @@ namespace BackendApi.Controllers
     {
         private readonly UserManager<AppUser> _userManager;
         private readonly SignInManager<AppUser> _signInManager;
+        private readonly ApplicationDBContext _context;
         private readonly EmailService _emailService;
         private readonly IConfiguration _configuration;
 
-        public AccountController(UserManager<AppUser> userManager, SignInManager<AppUser> signInManager, EmailService emailService, IConfiguration configuration)
+        public AccountController(UserManager<AppUser> userManager, SignInManager<AppUser> signInManager, ApplicationDBContext context, EmailService emailService, IConfiguration configuration)
         {
             _userManager = userManager;
             _signInManager = signInManager;
+            _context = context;
             _emailService = emailService;
             _configuration = configuration;
         } 
@@ -121,6 +124,17 @@ namespace BackendApi.Controllers
                 return Unauthorized("Please confirm your email first.");
               }   
 
+              var subscription = await _context.Subscriptions.FristOrDefaultAsync(s => s.UserId == user.Id && s.IsActive);
+              
+              if(subscription != null && subscription.EndDate <= DateTime.UtcNow)
+              {
+                await _userManager.RemoveFromRolesAsync(user, "User");
+                await _userManager.AddToRoleAsync(user, "User");
+
+                subscription.IsActive = false;
+                await _context.SaveChangesAsync();
+              }
+
               var roles = await _userManager.GetRolesAsync(user);
               var token = GenerateJwtToken(user, roles);
               
@@ -162,21 +176,6 @@ namespace BackendApi.Controllers
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
-        }
-
-        [HttpDelete("delete-user/{userId}")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> DeleteUser(string userId)
-        {
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user == null)
-                return NotFound("User not found.");
-
-            var result = await _userManager.DeleteAsync(user);
-            if (result.Succeeded)
-                return Ok("User deleted successfully.");
-
-            return BadRequest(result.Errors);
         }
     }
 }

@@ -31,6 +31,7 @@ namespace BackendApi.Controllers
             return Ok(roles);
         }
 
+        //Get role by Id
         [HttpGet("{roleId}")]
         public async Task<IActionResult> GetRole(string roleId)
         {
@@ -40,6 +41,17 @@ namespace BackendApi.Controllers
                 return NotFound("Role not found");
             }
             return Ok(role);
+        }
+
+        //Get users by role name
+        [HttpGet("users-by-role/{rolename}")]
+        public async Task<IActionResult> GetUsersByRole(string roleName)
+        {
+            if (!await _roleManager.RoleExistsAsync(roleName))
+                return NotFound("Role not found");
+
+            var users = await _userManager.GetUsersInRoleAsync(roleName);
+            return Ok(users);
         }
 
         //Create a new role
@@ -59,7 +71,7 @@ namespace BackendApi.Controllers
             }
             return BadRequest(result.Errors);
         }
-        
+
         //Update an existing role
         [HttpPut]
         public async Task<IActionResult> UpdateRole([FromBody] UpdateRoleModel model)
@@ -79,21 +91,6 @@ namespace BackendApi.Controllers
             }
             return BadRequest(result.Errors);
         }
-        
-        //Delete a role
-        [HttpDelete("{roleId}")]
-        public async Task<IActionResult> DeleteRole(string roleId)
-        {
-            var role =await _roleManager.FindByIdAsync(roleId);
-            if(role == null) return NotFound("Role not found");
-            
-            var result = await _roleManager.DeleteAsync(role);
-            if(result.Succeeded)
-            {
-                return Ok("Role deleted successfully");
-            }
-            return BadRequest(result.Errors);
-        }
 
         //Assign a role to a user
         [HttpPost("assign-role-to-user")]
@@ -107,10 +104,28 @@ namespace BackendApi.Controllers
                 return NotFound("Role not found");
             }
 
+            var currentRoles = await _userManager.GetRolesAsync(user);
+            await _userManager.RemoveFromRolesAsync(user, currentRoles);
+
             var result = await _userManager.AddToRoleAsync(user, model.RoleName);
             if(result.Succeeded)
             {
                 return Ok($"Role {model.RoleName} assigned successfully to user {user.Email}");
+            }
+            return BadRequest(result.Errors);
+        }
+        
+        //Delete a role
+        [HttpDelete("{roleId}")]
+        public async Task<IActionResult> DeleteRole(string roleId)
+        {
+            var role =await _roleManager.FindByIdAsync(roleId);
+            if(role == null) return NotFound("Role not found");
+            
+            var result = await _roleManager.DeleteAsync(role);
+            if(result.Succeeded)
+            {
+                return Ok("Role deleted successfully");
             }
             return BadRequest(result.Errors);
         }
