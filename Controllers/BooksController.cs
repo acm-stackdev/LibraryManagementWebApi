@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using LibraryManagementSystem.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace BackendApi.Controllers
 {
@@ -61,7 +62,6 @@ namespace BackendApi.Controllers
         }
 
         // PUT: api/Books/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateBook(int id, Book book)
         {
@@ -85,8 +85,8 @@ namespace BackendApi.Controllers
         }
 
         // POST: api/Books
-
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<Book>> CreateBook(Book book)
         {
             try{
@@ -108,6 +108,7 @@ namespace BackendApi.Controllers
 
         // DELETE: api/Books/5
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteBook(int id)
         {
            try

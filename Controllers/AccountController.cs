@@ -23,11 +23,11 @@ namespace BackendApi.Controllers
     {
         private readonly UserManager<AppUser> _userManager;
         private readonly SignInManager<AppUser> _signInManager;
-        private readonly ApplicationDBContext _context;
+        private readonly LibraryContext _context;
         private readonly EmailService _emailService;
         private readonly IConfiguration _configuration;
 
-        public AccountController(UserManager<AppUser> userManager, SignInManager<AppUser> signInManager, ApplicationDBContext context, EmailService emailService, IConfiguration configuration)
+        public AccountController(UserManager<AppUser> userManager, SignInManager<AppUser> signInManager, LibraryContext context, EmailService emailService, IConfiguration configuration)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -124,11 +124,11 @@ namespace BackendApi.Controllers
                 return Unauthorized("Please confirm your email first.");
               }   
 
-              var subscription = await _context.Subscriptions.FristOrDefaultAsync(s => s.UserId == user.Id && s.IsActive);
+              var subscription = await _context.Subscriptions.FirstOrDefaultAsync(s => s.UserId == user.Id && s.IsActive);
               
               if(subscription != null && subscription.EndDate <= DateTime.UtcNow)
               {
-                await _userManager.RemoveFromRolesAsync(user, "User");
+                await _userManager.RemoveFromRoleAsync(user, "User");
                 await _userManager.AddToRoleAsync(user, "User");
 
                 subscription.IsActive = false;
