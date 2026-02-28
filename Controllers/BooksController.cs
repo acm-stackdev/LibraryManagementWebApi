@@ -63,20 +63,32 @@ namespace BackendApi.Controllers
 
         // PUT: api/Books/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateBook(int id, Book book)
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateBook(int id, UpdateBookDTO dto)
         {
             try
             {
-                if (id != book.BookId)
+                if(dto.AuthorNames == null || !dto.AuthorNames.Any())
                 {
-                    _logger.LogWarning("Book ID mismatch.");
-                    return BadRequest("Book ID mismatch.");
+                    _logger.LogWarning("Book must have at least one author.");
+                    return BadRequest("Book must have at least one author.");
                 }
 
-                await _bookService.UpdateBookAsync(book, new List<string>());
-                _logger.LogInformation($"Book with ID {id} updated.");
+                var book = await _bookService.GetByIdAsync(id);
+                if(book == null)
+                {
+                    return NotFound($"Book with ID {id} not found.");
+                }
+
+                book.Title = dto.Title;
+                book.ISBN = dto.ISBN;
+                book.CategoryId = dto.CategoryId;
+
+                await _bookService.UpdateBookAsync(book, dto.AuthorNames);
+
+                _logger.LogInformation($"Book with ID {id} updated successfully.");
                 return NoContent();
-            }
+               }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error updating book with ID {id}.");
@@ -87,18 +99,36 @@ namespace BackendApi.Controllers
         // POST: api/Books
         [HttpPost]
         [Authorize(Roles = "Admin")]
-        public async Task<ActionResult<Book>> CreateBook(Book book)
+        public async Task<ActionResult<Book>> CreateBook(CreateBookDTO dto)
         {
             try{
-                if(book == null){
+                if(dto == null){
                     _logger.LogWarning("Book object is null.");
                     return BadRequest("Book cannot be null.");
                 }
 
-                var createdBook = await _bookService.CreateBookAsync(book, new List<string>());
-                _logger.LogInformation($"Book with ID{createdBook.BookId} created successfully.");
-                return CreatedAtAction(nameof(GetBook), new {id = createdBook.BookId}, createdBook);
+                if(dto.AuthorNames == null || !dto.AuthorNames.Any()){
+                    _logger.LogWarning("Author names are required.");
+                    return BadRequest("Author names are required.");
+                }
+
+                // Check if book with same ISBN already exists
+                var existingBook = await _bookService.GetByISBNAsync(dto.ISBN);
+                if(existingBook != null)
+                {
+                    _logger.LogWarning($"Book with ISBN {dto.ISBN} already exists.");
+                    return Conflict($"Book with ISBN {dto.ISBN} already exists.");
+                }
+
+                var book = new Book{
+                    Title = dto.Title,
+                    ISBN = dto.ISBN,
+                    CategoryId = dto.CategoryId,
+                };
                 
+                var createdBook = await _bookService.CreateBookAsync(book, dto.AuthorNames);
+                _logger.LogInformation($"Book with ID {createdBook.BookId} created successfully.");
+                return CreatedAtAction(nameof(GetBook), new { id = createdBook.BookId }, createdBook);
             }
             catch(Exception ex){
                 _logger.LogError($"Error creating book: {ex.Message}");

@@ -30,6 +30,7 @@ public class BookService : IBookService
             .FirstOrDefaultAsync(b => b.BookId == id);
     }
 
+    // Create a new book and handle authors 
     public async Task<Book> CreateBookAsync(Book book, List<string> authorNames)
     {
         var categoryName = book.Category?.Name;
@@ -72,12 +73,13 @@ public class BookService : IBookService
 
         foreach (var name in authorNames)
         {
+             var normalizedName = name.Trim().ToUpper();
             var existingAuthor = await _context.Authors
-                .FirstOrDefaultAsync(a => a.Name.ToLower() == name.ToLower());
+                .FirstOrDefaultAsync(a => a.Name.ToUpper() == normalizedName);
 
             if (existingAuthor == null)
             {
-                var newAuthor = new Author { Name = name };
+                var newAuthor = new Author { Name = normalizedName };
                 _context.Authors.Add(newAuthor);
                 await _context.SaveChangesAsync();
                 book.BookAuthors.Add(new BookAuthor { AuthorId = newAuthor.AuthorId });
@@ -92,6 +94,14 @@ public class BookService : IBookService
         _context.Books.Add(book);
         await _context.SaveChangesAsync();
         return book;
+    }
+
+    public async Task<Book?> GetByISBNAsync(string isbn)
+    {
+        return await _context.Books
+            .Include(b => b.BookAuthors)
+                .ThenInclude(ba => ba.Author)
+            .FirstOrDefaultAsync(b => b.ISBN == isbn);  
     }
 
     // Update book details and authors with category name
@@ -116,12 +126,13 @@ public class BookService : IBookService
         book.BookAuthors = new List<BookAuthor>();
         foreach (var name in authorNames)
         {
+            var normalizedName = name.Trim().ToUpper();
             var existingAuthor = await _context.Authors
-                .FirstOrDefaultAsync(a => a.Name.ToLower() == name.ToLower());
+                .FirstOrDefaultAsync(a => a.Name.ToUpper() == normalizedName);
 
             if (existingAuthor == null)
             {
-                var newAuthor = new Author { Name = name };
+                var newAuthor = new Author { Name = normalizedName };
                 _context.Authors.Add(newAuthor);
                 await _context.SaveChangesAsync();
                 book.BookAuthors.Add(new BookAuthor { AuthorId = newAuthor.AuthorId });

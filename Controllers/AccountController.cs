@@ -14,6 +14,8 @@ using System.Threading.Tasks;
 using BackendApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using LibraryManagementSystem.DTOs;
+using System.Web;
 
 namespace BackendApi.Controllers
 {
@@ -150,6 +152,74 @@ namespace BackendApi.Controllers
             return Ok("Logout successful.");
         }
 
+        //forgot password
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword(ForgotPasswordDTO dto)
+        {
+            var user = await _userManager.FindByEmailAsync(dto.Email);
+            if(user == null || !(await _userManager.IsEmailConfirmedAsync(user)))
+            {
+                return Ok("If your email is registered and confirmed, a reset link has been sent.");
+            }
+
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+
+            // Generate reset link
+            var resetLink = Url.Action(
+                "ResetPassword",
+                "Account",
+                new { userId = user.Id, token },
+                Request.Scheme
+            );
+
+            // Send email
+            _emailService.SendEmail(
+                user.Email,
+                "Password Reset Request",
+                $@"
+        <html>
+        <body style='font-family: Arial, sans-serif; line-height:1.6; color: #333;'>
+            <h2>Password Reset Request</h2>
+            <p>Hi {user.Name},</p>
+            <p>You requested to reset your password. Click the button below to reset it:</p>
+            <p style='text-align:center;'>
+                <a href='{resetLink}' style='background-color:#3498DB;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;'>
+                Reset Password
+                </a>
+            </p>
+            <hr>
+            <p style='font-size:12px;color:#888;'>If you did not request this, you can ignore this email.</p>
+        </body>
+        </html>"
+            );
+
+            return Ok("If your email is registered and confirmed, a reset link has been sent.");
+        }
+
+        //reset password
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword(ResetPasswordDTO dto)
+        {
+            var user = await _userManager.FindByIdAsync(dto.UserId);
+            if(user == null)
+            {
+                return BadRequest("Invalid user.");
+            }
+
+            var decodedToken = HttpUtility.UrlDecode(dto.Token);
+
+            var result = await _userManager.ResetPasswordAsync(user, decodedToken, dto.NewPassword);
+
+            if(result.Succeeded)
+            {
+                return Ok("Password has been reset successfully.");
+            }
+
+            var errors = result.Errors.Select(e => e.Description);
+            return BadRequest(new { Errors = errors });
+        }
+
+        //helper method for generating jwt token
         private string GenerateJwtToken(AppUser user, IList<string> roles)
         {
          var claims = new List<Claim>

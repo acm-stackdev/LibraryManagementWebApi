@@ -16,6 +16,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddControllers();
 builder.Services.AddScoped<IBookService, BookService>();
 builder.Services.AddScoped<IAuthorService, AuthorService>();
+builder.Services.AddScoped<IBookAuthorService, BookAuthorService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IBorrowRecordService, BorrowRecordService>();
 builder.Services.AddScoped<IWishlistService, WishlistService>();
@@ -99,6 +100,34 @@ using (var scope = app.Services.CreateScope())
         await userManager.AddToRoleAsync(newAdmin, "Admin");
       }   
     }
+}
+
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<LibraryContext>();
+
+string[] categories = 
+{ 
+    "Fiction", 
+    "Science", 
+    "History", 
+    "Technology", 
+    "Philosophy" 
+};
+
+// creating categories for the first run
+foreach (var category in categories)
+{
+    if (!context.Categories.Any(c => c.Name == category))
+    {
+        context.Categories.Add(new Category
+        {
+            Name = category
+        });
+    }
+}
+
+await context.SaveChangesAsync();
 }
 
 // Configure the HTTP request pipeline.
