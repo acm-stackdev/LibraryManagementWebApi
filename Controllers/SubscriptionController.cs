@@ -7,7 +7,6 @@ using LibraryManagementSystem.DTOs;
 using LibraryManagementSystem.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 
 namespace BackendApi.Controllers
 {
@@ -16,12 +15,10 @@ namespace BackendApi.Controllers
     public class SubscriptionController : ControllerBase
     {
         private readonly ISubscriptionService _subscriptionService;
-        public readonly ILogger<SubscriptionController> _logger;
 
-        public SubscriptionController(ISubscriptionService subscriptionService, ILogger<SubscriptionController> logger)
+        public SubscriptionController(ISubscriptionService subscriptionService)
         {
             _subscriptionService = subscriptionService;
-            _logger = logger;
         }
 
         // GET: api/Subscription
@@ -29,16 +26,9 @@ namespace BackendApi.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<Subscription>>> GetSubscriptions()
         {
-            try
-            {
                 var subscription = await _subscriptionService.GetAllAsync();
                 if(subscription == null) return NotFound();
                 return Ok(subscription);
-            }catch(Exception ex)
-            {
-                _logger.LogError($"Error fetching subscriptions: {ex.Message}");
-                return StatusCode(500, "Internal server error");
-            }
         }
 
         // GET: api/Subscription/5
@@ -46,16 +36,9 @@ namespace BackendApi.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult<Subscription>> GetSubscription(int id)
         {
-            try
-            {
                 var subscription = await _subscriptionService.GetByIdAsync(id);
                 if(subscription == null) return NotFound();
                 return Ok(subscription);
-            }catch(Exception ex)
-            {
-                _logger.LogError($"Error fetching subscription: {ex.Message}");
-                return StatusCode(500, "Internal server error");
-            }
         }
 
         // PUT: api/Subscription
@@ -64,15 +47,8 @@ namespace BackendApi.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> CreateOrUpdateSubscription([FromBody] SubscriptionDTO dto)
         {
-            try
-            {
                 var subscription = await _subscriptionService.CreateOrUpdateAsync(dto);
                 return Ok(subscription);
-            }catch(Exception ex)
-            {
-                _logger.LogError($"Error creating or updating subscription for user {dto.UserId}.");
-                return StatusCode(500, "Internal server error");
-            }
         }
 
         //DELETE : api/Subscription/5
@@ -80,8 +56,6 @@ namespace BackendApi.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteSubscription(string userId)
         {
-            try
-            {
                 var subscription = await _subscriptionService.GetByUserIdAsync(userId);
                 if(subscription == null)
                 {
@@ -91,12 +65,6 @@ namespace BackendApi.Controllers
                 await _subscriptionService.DeleteAsync(userId);
 
                 return Ok($"Subscription for user {subscription.UserId} deleted and role downgraded to User.");
-            }
-            catch(Exception ex)
-            {
-                _logger.LogError(ex, $"Error deleting subscription {userId}");
-                return StatusCode(500, "Internal server error");
-            }
         }
 
         // GET: api/Subscription/me
@@ -104,8 +72,6 @@ namespace BackendApi.Controllers
         [Authorize]
         public async Task<IActionResult> GetMySubscription()
         {
-            try
-            {
                 var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
                 if (string.IsNullOrEmpty(userId))
                     return Unauthorized();
@@ -128,12 +94,6 @@ namespace BackendApi.Controllers
                     subscription.IsActive,
                     RemainingDays = remainingDays > 0 ? remainingDays : 0
                 });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching subscription for current user");
-                return StatusCode(500, "Internal server error");
-            }
         }
     }
 }

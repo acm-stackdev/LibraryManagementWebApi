@@ -19,20 +19,16 @@ namespace BackendApi.Controllers
     public class BorrowRecordController : ControllerBase
     {
         private readonly IBorrowRecordService _borrowRecordService;
-        private readonly ILogger<BorrowRecordController> _logger;
 
-        public BorrowRecordController(IBorrowRecordService borrowRecordService, ILogger<BorrowRecordController> logger)
+        public BorrowRecordController(IBorrowRecordService borrowRecordService)
         {
             _borrowRecordService = borrowRecordService;
-            _logger = logger;
         }
 
         // GET: api/BorrowRecord
         [HttpGet]
         public async Task<ActionResult<IEnumerable<BorrowRecordDTO>>> GetBorrowRecords()
         {
-            try
-            {
                 var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
                 if(User.IsInRole("Admin"))
                 {
@@ -43,12 +39,6 @@ namespace BackendApi.Controllers
                     var userRecords = await _borrowRecordService.GetBorrowRecordsByUserIdAsync(userId);
                     return Ok(userRecords);
                 }
-            }
-            catch(Exception ex)
-            {
-                _logger.LogError($"Error getting borrow records: {ex.Message}");
-                return StatusCode(500, "Internal server error");
-            }
         }
 
         // GET: api/BorrowRecord/user/{userId}
@@ -56,24 +46,14 @@ namespace BackendApi.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<BorrowRecordDTO>>> GetUserBorrowRecords(string userId)
         {
-            try
-            {
                 var records = await _borrowRecordService.GetBorrowRecordsByUserIdAsync(userId);
                 return Ok(records);
-            }
-            catch(Exception ex)
-            {
-                _logger.LogError($"Error getting borrow records for user {userId}: {ex.Message}");
-                return StatusCode(500, "Internal server error");
-            }
         }
 
         // GET: api/BorrowRecord/id
         [HttpGet("id")]
         public async Task<ActionResult<BorrowRecordDTO>> GetBorrowRecordById(int id)
         {
-            try
-            {
                 var record = await _borrowRecordService.GetByIdAsync(id);
                 if (record == null)
                     return NotFound();
@@ -84,12 +64,6 @@ namespace BackendApi.Controllers
                     return Forbid();
 
                 return Ok(record);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error retrieving borrow record {id}");
-                return StatusCode(500, "Internal server error");
-            }
         }
 
         //Post: api/BorrowRecord/borrow/{bookId}
@@ -99,17 +73,8 @@ namespace BackendApi.Controllers
         {
            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            try
-            {
                 var record = await _borrowRecordService.BorrowBookAsync(userId, bookId);
-                _logger.LogInformation($"User {userId} borrowed book {bookId}");
                 return Ok(record);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error borrowing book {bookId} for user {userId}");
-                return BadRequest(new { message = ex.Message });
-            }
         }
 
         // Return: api/BorrowRecord/return/5
@@ -118,8 +83,6 @@ namespace BackendApi.Controllers
         {
            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            try
-            {
                 var record = await _borrowRecordService.GetByIdAsync(borrowRecordId);
                 if (record == null)
                     return NotFound();
@@ -128,15 +91,7 @@ namespace BackendApi.Controllers
                     return Forbid();
 
                 var updatedRecord = await _borrowRecordService.ReturnBookAsync(borrowRecordId);
-                _logger.LogInformation($"User {userId} returned book {updatedRecord.BookId} (BorrowRecordId: {borrowRecordId})");
-
                 return Ok(updatedRecord);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error returning book for BorrowRecordId {borrowRecordId}");
-                return BadRequest(new { message = ex.Message });
-            }
         }
 
     }

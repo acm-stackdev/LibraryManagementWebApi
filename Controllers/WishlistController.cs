@@ -29,8 +29,6 @@ namespace BackendApi.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<WishlistDto>>> GetMyWishlists()
         {
-             try
-            {
                 var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
                 if (userId == null) return Unauthorized();
 
@@ -42,20 +40,12 @@ namespace BackendApi.Controllers
 
                 var items = await _wishlistService.GetWishlistDtosByUserIdAsync(userId);
                 return Ok(items);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching wishlist.");
-                return StatusCode(500, "Internal server error");
-            }
         }
 
         // POST: api/Wishlist/{bookId}
         [HttpPost("{bookId}")]
         public async Task<ActionResult<Wishlist>> AddToWishlist(int bookId)
         {
-            try
-            {
                 var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
                 if (userId == null) return Unauthorized();
 
@@ -76,20 +66,12 @@ namespace BackendApi.Controllers
                 };
 
                 return CreatedAtAction(nameof(GetMyWishlists), dto);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error adding book {bookId} to wishlist.");
-                return StatusCode(500, "Internal server error");
-            }
         }
 
         // DELETE: api/Wishlist/{wishlistId}
         [HttpDelete("{wishlistId}")]
         public async Task<IActionResult> RemoveFromWishlist(int wishlistId)
         {
-           try
-            {
                 var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
                 if (userId == null) return Unauthorized();
 
@@ -101,12 +83,6 @@ namespace BackendApi.Controllers
 
                 await _wishlistService.RemoveFromWishlistAsync(wishlistId);
                 return NoContent();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Error removing wishlist item {wishlistId}.");
-                return StatusCode(500, "Internal server error");
-            }
         }
     }
 }
