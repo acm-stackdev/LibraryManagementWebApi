@@ -1,3 +1,4 @@
+using LibraryManagementSystem.DTOs;
 using LibraryManagementSystem.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,28 +11,28 @@ public class WishlistService : IWishlistService
         _context = context;
     }
 
-    public async Task<IEnumerable<Wishlist>> GetAllAsync()
+    public async Task<IEnumerable<WishlistDto>> GetWishlistDtosByUserIdAsync(string userId)
     {
-        return await _context.Wishlists
-            .Include(w => w.Book)
-            .Include(w => w.User)
-            .ToListAsync();
-    }
-
-    public async Task<Wishlist?> GetByIdAsync(int id)
-    {
-        return await _context.Wishlists
-            .Include(w => w.Book)
-            .Include(w => w.User)
-            .FirstOrDefaultAsync(w => w.BookId == id);
-    }
-
-    public async Task<IEnumerable<Wishlist>> GetWishlistByUserIdAsync(string userId)
-    {
-        return await _context.Wishlists
+        var items = await _context.Wishlists
             .Where(w => w.UserId == userId)
             .Include(w => w.Book)
+                .ThenInclude(b => b.BookAuthors)
+                    .ThenInclude(ba => ba.Author)
             .ToListAsync();
+
+        return items.Select(MapToDto);
+    }
+
+    public async Task<IEnumerable<WishlistDto>> GetAllWishlistDtosAsync()
+    {
+        var items = await _context.Wishlists
+        .Include(w => w.User)
+        .Include(w => w.Book)
+            .ThenInclude(b => b.BookAuthors)
+                .ThenInclude(ba => ba.Author)
+        .ToListAsync();
+
+    return items.Select(MapToDto);
     }
 
     public async Task<Wishlist> AddToWishlistAsync(string userId, int bookId)
@@ -51,6 +52,15 @@ public class WishlistService : IWishlistService
 
         _context.Wishlists.Add(wishlist);
         await _context.SaveChangesAsync();
+        
+        await _context.Entry(wishlist).Reference(w => w.User).LoadAsync();
+        await _context.Entry(wishlist).Reference(w => w.Book).LoadAsync();
+        await _context.Entry(wishlist.Book!).Collection(b => b.BookAuthors).LoadAsync();
+
+        foreach (var ba in wishlist.Book!.BookAuthors ?? Enumerable.Empty<BookAuthor>())
+        {
+            await _context.Entry(ba).Reference(ba => ba.Author).LoadAsync();
+        }
 
         return wishlist;
     }
@@ -63,5 +73,33 @@ public class WishlistService : IWishlistService
             _context.Wishlists.Remove(wishlist);
             await _context.SaveChangesAsync();
         }
+    }
+
+    public async Task<Wishlist?> GetByIdAsync(int wishlistId)
+    {
+        return await _context.Wishlists
+            .Include(w => w.Book)
+                .ThenInclude(b => b.BookAuthors)
+                    .ThenInclude(ba => ba.Author)
+            .Include(w => w.User)
+            .FirstOrDefaultAsync(w => w.WishlistId == wishlistId);
+    }
+
+    private WishlistDto MapToDto(Wishlist w)
+    {
+        return new WishlistDto
+        {
+            WishlistId = w.WishlistId,
+            BookId = w.BookId,
+            BookTitle = w.Book!.Title ?? "Unknown",
+            Authors = w.Book.BookAuthors!.Select(ba => new AuthorDTO
+        {
+            AuthorId = ba.Author!.AuthorId,
+            Name = ba.Author!.Name
+        }).ToList(),
+            CreatedAt = w.CreatedAt,
+            UserId = w.UserId,
+            UserEmail = w.User!.Email ?? "Unknown"
+        };
     }
 }
