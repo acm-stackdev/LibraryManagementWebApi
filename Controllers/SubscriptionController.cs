@@ -1,19 +1,18 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using LibraryManagementSystem.Models;
 using LibraryManagementSystem.DTOs;
+using LibraryManagementSystem.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace BackendApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin")]
     public class SubscriptionController : ControllerBase
     {
         private readonly ISubscriptionService _subscriptionService;
@@ -27,11 +26,13 @@ namespace BackendApi.Controllers
 
         // GET: api/Subscription
         [HttpGet]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<Subscription>>> GetSubscriptions()
         {
             try
             {
                 var subscription = await _subscriptionService.GetAllAsync();
+                if(subscription == null) return NotFound();
                 return Ok(subscription);
             }catch(Exception ex)
             {
@@ -42,6 +43,7 @@ namespace BackendApi.Controllers
 
         // GET: api/Subscription/5
         [HttpGet("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<Subscription>> GetSubscription(int id)
         {
             try
@@ -56,55 +58,80 @@ namespace BackendApi.Controllers
             }
         }
 
-        // PUT: api/Subscription/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateSubscription(int id, SubscriptionDTO dto)
+        // PUT: api/Subscription
+        // Update subscription or create new subscription
+        [HttpPost]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> CreateOrUpdateSubscription([FromBody] SubscriptionDTO dto)
         {
-            if (id != dto.SubscriptionId)
-            {
-                return BadRequest();
-            }
-
             try
             {
-                await _subscriptionService.UpdateAsync(id, dto);
-                _logger.LogInformation($"Subscription updated successfully: {id}");
-                return NoContent();
+                var subscription = await _subscriptionService.CreateOrUpdateAsync(dto);
+                return Ok(subscription);
+            }catch(Exception ex)
+            {
+                _logger.LogError($"Error creating or updating subscription for user {dto.UserId}.");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        //DELETE : api/Subscription/5
+        [HttpDelete("user/{userId}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> DeleteSubscription(string userId)
+        {
+            try
+            {
+                var subscription = await _subscriptionService.GetByUserIdAsync(userId);
+                if(subscription == null)
+                {
+                    return NotFound("Subscription not found");
+                }
+
+                await _subscriptionService.DeleteAsync(userId);
+
+                return Ok($"Subscription for user {subscription.UserId} deleted and role downgraded to User.");
+            }
+            catch(Exception ex)
+            {
+                _logger.LogError(ex, $"Error deleting subscription {userId}");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        // GET: api/Subscription/me
+        [HttpGet("me")]
+        [Authorize]
+        public async Task<IActionResult> GetMySubscription()
+        {
+            try
+            {
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(userId))
+                    return Unauthorized();
+
+                // Automatically update subscription status
+                await _subscriptionService.IsSubscriptionValidAsync(userId);
+
+                var subscription = await _subscriptionService.GetByUserIdAsync(userId);
+                if (subscription == null)
+                    return NotFound("You have no subscription");
+
+                var remainingDays = (subscription.EndDate - DateTime.Now).Days;
+                return Ok(new
+                {
+                    subscription.UserId,
+                    subscription.StartDate,
+                    subscription.EndDate,
+                    subscription.MaxBorrowLimit,
+                    subscription.BorrowDurationDays,
+                    subscription.IsActive,
+                    RemainingDays = remainingDays > 0 ? remainingDays : 0
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error updating subscription: {ex.Message}");
-                return StatusCode(500, "Internal server error");
-            }
-        }
-
-        // POST: api/Subscription
-        [HttpPost]
-        public async Task<ActionResult<Subscription>> CreateSubscription([FromBody] SubscriptionDTO dto)
-        {
-            try
-            {
-                var newSubscription = await _subscriptionService.CreateAsync(dto);
-                return CreatedAtAction(nameof(GetSubscription), new {id = newSubscription.SubscriptionId}, newSubscription);
-            }catch(Exception ex)
-            {
-                _logger.LogError($"Error creating subscription for user {dto.UserId}.");
-                return StatusCode(500, "Internal server error");
-            }
-        }
-
-        // DELETE: api/Subscription/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteSubscription(int id)
-        {
-            try
-            {
-                await _subscriptionService.DeleteAsync(id);
-                return NoContent();
-            }catch(Exception ex)
-            {
-                _logger.LogError($"Error deleting subscription for user {id}");
+                _logger.LogError(ex, "Error fetching subscription for current user");
                 return StatusCode(500, "Internal server error");
             }
         }

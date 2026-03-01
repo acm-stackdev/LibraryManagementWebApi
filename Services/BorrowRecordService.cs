@@ -1,88 +1,126 @@
+using LibraryManagementSystem.DTOs;
 using LibraryManagementSystem.Models;
 using Microsoft.EntityFrameworkCore;
 
 public class BorrowRecordService : IBorrowRecordService
 {
     private readonly LibraryContext _context;
+    private readonly ISubscriptionService _subscriptionService;
 
-    public BorrowRecordService(LibraryContext context)
+    public BorrowRecordService(LibraryContext context, ISubscriptionService subscriptionService)
     {
         _context = context;
+        _subscriptionService = subscriptionService;
     }
 
-    public async Task<IEnumerable<BorrowRecord>> GetAllAsync()
+    public async Task<IEnumerable<BorrowRecordDTO>> GetAllAsync()
     {
-        return await _context.BorrowRecords
+        var records =await _context.BorrowRecords
             .Include(b => b.Book)
             .Include(b => b.User)
             .ToListAsync();
+
+        return records.Select(MapToDTO);    
+
+    }
+    
+    public async Task<IEnumerable<BorrowRecordDTO>> GetBorrowRecordsByUserIdAsync(string userId)
+    {
+        var records = await _context.BorrowRecords
+            .Include(b => b.Book)
+            .Include(b => b.User)
+            .Where(r => r.UserId == userId)
+            .ToListAsync();
+
+        return records.Select(MapToDTO);
     }
 
-    public async Task<BorrowRecord?> GetByIdAsync(int id)
+    public async Task<BorrowRecordDTO?> GetByIdAsync(int id)
     {
-        return await _context.BorrowRecords
+        var record = await _context.BorrowRecords
             .Include(b => b.Book)
             .Include(b => b.User)
             .FirstOrDefaultAsync(b => b.BorrowRecordId == id);
+
+        return record != null ? MapToDTO(record) : null;
     }
 
-    public async Task<BorrowRecord> BorrowBookAsync(string userId, int bookId)
+    public async Task<BorrowRecordDTO> BorrowBookAsync(string userId, int bookId)
     {
-        var subscription = await _context.Subscriptions
-            .FirstOrDefaultAsync(s => s.UserId == userId && s.IsActive);
-
-        if (subscription == null || subscription.EndDate < DateTime.Now){
-            throw new Exception("User does not have a valid subscription.");
+        var isValid = await _subscriptionService.IsSubscriptionValidAsync(userId);
+        if (!isValid) 
+        {
+            throw new Exception("User does not have an active subscription");
         }
 
-        var activeBorrowsCount = await _context.BorrowRecords
+        var activeBorrows = await _context.BorrowRecords
             .CountAsync(b => b.UserId == userId && b.ReturnDate == null);
 
-        if (activeBorrowsCount >= subscription.MaxBorrowLimit){
-            throw new Exception("User has reached the maximum number of active borrows.");
-        }
+        var subscription = await _subscriptionService.GetByUserIdAsync(userId);
+        if (activeBorrows >= subscription.MaxBorrowLimit)
+            throw new Exception($"Borrow limit reached. You can only borrow {subscription.MaxBorrowLimit} books."); 
 
         var alreadyBorrowed = await _context.BorrowRecords
-            .FirstOrDefaultAsync(b => b.UserId == userId && b.BookId == bookId && b.ReturnDate == null);
-
-        if (alreadyBorrowed != null){
-            throw new Exception("You have already borrowed this book.");
+            .AnyAsync(b => b.UserId == userId && b.BookId == bookId && b.ReturnDate == null);
+        if (alreadyBorrowed)
+        {
+            throw new Exception("User has already borrowed this book.");
         }
 
+        var isBorrowed = await _context.BorrowRecords
+            .AnyAsync(b => b.BookId == bookId && b.ReturnDate == null);
 
+        if (isBorrowed)
+            throw new Exception("Book is currently borrowed by another user.");
 
-        var borrowRecord = new BorrowRecord
-        {
+        var book = await _context.Books.FindAsync(bookId);
+        if (book == null) throw new Exception("Book not found.");
+
+        var borrowRecord = new BorrowRecord{
             UserId = userId,
             BookId = bookId,
             BorrowDate = DateTime.Now,
-            DueDate = DateTime.Now.AddDays(subscription.BorrowDurationDays)
+            DueDate = DateTime.Now.AddDays(subscription.BorrowDurationDays),
         };
 
         _context.BorrowRecords.Add(borrowRecord);
         await _context.SaveChangesAsync();
 
-        return borrowRecord;
+        return MapToDTO(borrowRecord);
     }
 
-    public async Task ReturnBookAsync(int borrowRecordId)
+    public async Task<BorrowRecordDTO> ReturnBookAsync(int borrowRecordId)
     {
-        var record = await _context.BorrowRecords.FindAsync(borrowRecordId);
-        if (record == null) throw new Exception("Borrow record not found.");
+        var record = await _context.BorrowRecords
+            .Include(b => b.Book)
+            .Include(b => b.User)
+            .FirstOrDefaultAsync(b => b.BorrowRecordId == borrowRecordId);
 
-        if (record.ReturnDate != null){
+        if (record == null)
+            throw new Exception("Borrow record not found.");
+
+        if (record.ReturnDate != null)
             throw new Exception("Book has already been returned.");
-        }
 
         record.ReturnDate = DateTime.Now;
-        _context.Entry(record).State = EntityState.Modified;
+        _context.BorrowRecords.Update(record);
         await _context.SaveChangesAsync();
+
+        return MapToDTO(record);
     }
 
-    public async Task<IEnumerable<BorrowRecord>> GetBorrowRecordsByUserIdAsync(string userId)
+    private BorrowRecordDTO MapToDTO(BorrowRecord record)
     {
-        return await _context.BorrowRecords
-                     .Where(r => r.UserId == userId)
-                     .ToListAsync();
+        return new BorrowRecordDTO
+        {
+            BorrowRecordId = record.BorrowRecordId,
+            UserId = record.UserId,
+            UserName = record.User?.Name,
+            BookId = record.BookId,
+            BookTitle = record.Book?.Title,
+            BorrowDate = record.BorrowDate,
+            DueDate = record.DueDate,
+            ReturnDate = record.ReturnDate
+        };
     }
 }

@@ -3,13 +3,11 @@ using LibraryManagementSystem.DTOs;
 
 public interface ISubscriptionService
 {
-     Task<IEnumerable<Subscription>> GetAllAsync();
+    Task<IEnumerable<Subscription>> GetAllAsync();
     Task<Subscription?> GetByIdAsync(int id);
     Task<Subscription?> GetByUserIdAsync(string userId);
-
-    Task<Subscription> CreateAsync(SubscriptionDTO dto);
-    Task UpdateAsync(int id, SubscriptionDTO dto);
-    Task DeleteAsync(int id);
-
+    Task<Subscription> CreateOrUpdateAsync(SubscriptionDTO dto);
+    Task DeleteAsync(string userId);
     Task<bool> IsSubscriptionValidAsync(string userId);
+
 }

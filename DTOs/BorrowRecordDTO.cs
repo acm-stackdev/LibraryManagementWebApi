@@ -6,16 +6,17 @@ namespace LibraryManagementSystem.DTOs{
     {
         public int BorrowRecordId { get; set; }
         
-        [Required]
         public string UserId { get; set; }
-        
+
+        public string UserName { get; set; }
+       
         [Required]
         public int BookId { get; set; }
         
-        [Required]
+        public string BookTitle { get; set; }
+        
         public DateTime BorrowDate { get; set; }
         
-        [Required]
         public DateTime DueDate { get; set; }
 
         public DateTime? ReturnDate { get; set; }

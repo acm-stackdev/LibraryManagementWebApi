@@ -8,20 +8,8 @@ namespace LibraryManagementSystem.DTOs{
         
         [Required]
         public string UserId { get; set; }
-        
-        [Required]
-        public int MaxBorrowLimit { get; set; }
 
         [Required]
-        public int BorrowDurationDays { get; set; }
-
-        [Required]
-        public DateTime StartDate { get; set; }
-
-        [Required]
-        public DateTime EndDate { get; set; }
-
-        [Required]
-        public bool IsActive { get; set; }
+       public int NumberofMonths { get; set; }
     }
 }
