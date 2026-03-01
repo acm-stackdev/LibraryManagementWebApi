@@ -6,10 +6,28 @@ using System.Text;
 using LibraryManagementSystem.Models;
 using DotNetEnv;
 using BackendApi.Services;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 
 Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,              // Limiting to 10 requests
+                Window = TimeSpan.FromMinutes(1), // for 1 minute
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 2
+            }
+        )
+    );
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
