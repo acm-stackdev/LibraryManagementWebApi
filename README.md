@@ -1,4 +1,40 @@
-# Library Management System
+# Library Management System - Backend API
+
+A comprehensive RESTful API for a Library Management System, built with **.NET 8** and **Entity Framework Core**. This backend handles book inventory, user authentication, subscriptions, borrowing records, and wishlists, ensuring a robust foundation for library operations.
+
+## Features
+
+- **Authentication & Authorization**
+  - Secure User Registration and Login using **JWT Bearer Tokens**.
+  - **Role-Based Access Control (RBAC)**: Admin, User, Member roles.
+  - **Email Verification** and **Password Reset** functionality via SMTP.
+
+- **Book Management**
+  - Full CRUD operations for Books.
+  - Manage Authors and Categories.
+  - Advanced filtering and search capabilities.
+
+- **Library Operations**
+  - **Borrowing System**: Track borrowed books and due dates.
+  - **Subscription Plans**: Manage user memberships and access levels.
+  - **Wishlist**: Users can save books for later.
+
+- **API Documentation**
+  - Integrated **Swagger UI** for interactive API exploration and testing.
+
+## Tech Stack
+
+- **Framework:** ASP.NET Core Web API (.NET 8)
+- **Database:** SQLite (Development) / SQL Server (Production Ready)
+- **ORM:** Entity Framework Core
+- **Identity:** ASP.NET Core Identity
+- **Documentation:** Swagger / OpenAPI
+
+### API Documentation
+
+Once running, access the Swagger UI at:
+
+- **URL:** `http://localhost:5000/swagger` (or the port shown in your terminal output)
 
 ## Table Structure
 
