@@ -51,7 +51,14 @@ namespace BackendApi.Controllers
                 return NotFound("Role not found");
 
             var users = await _userManager.GetUsersInRoleAsync(roleName);
-            return Ok(users);
+            var result = users.Select(u => new
+            {
+                u.Id,
+                u.Name,
+                u.UserName,
+                u.Email,
+            });
+            return Ok(result);
         }
 
         //Create a new role

@@ -26,17 +26,25 @@ namespace BackendApi.Controllers
 
         //Get all users
         [HttpGet("users")]
-        public IActionResult GetUsers()
+        public async Task<IActionResult> GetUsers()
         {
-            var users = _userManager.Users
-                .Select(u => new 
+           var users = _userManager.Users.ToList();
+
+            var userList = new List<object>();
+
+            foreach (var user in users)
+            {
+                var roles = await _userManager.GetRolesAsync(user);
+
+                userList.Add(new
                 {
-                    u.Id,
-                    u.Name,
-                    u.Email,
-                })
-                .ToList();
-            return Ok(users);
+                    user.Id,
+                    user.Name,
+                    user.Email,
+                    Roles = roles
+                });
+            }
+             return Ok(userList);
         }
         
         [HttpDelete("delete-user/{userId}")]
