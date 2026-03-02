@@ -22,14 +22,6 @@ A comprehensive RESTful API for a Library Management System, built with **.NET 8
 - **API Documentation**
   - Integrated **Swagger UI** for interactive API exploration and testing.
 
-## Tech Stack
-
-- **Framework:** ASP.NET Core Web API (.NET 8)
-- **Database:** SQLite (Development) / SQL Server (Production Ready)
-- **ORM:** Entity Framework Core
-- **Identity:** ASP.NET Core Identity
-- **Documentation:** Swagger / OpenAPI
-
 ### API Documentation
 
 Once running, access the Swagger UI at:
