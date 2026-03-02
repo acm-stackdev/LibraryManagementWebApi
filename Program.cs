@@ -50,15 +50,23 @@ builder.Services.AddScoped<EmailService>();
 
 
 
+var connectionString = builder.Configuration.GetConnectionString("Connection");
+
+if (Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true")
+{
+    connectionString = "Data Source=/app/library.db";
+}
+
+
 builder.Services.AddDbContext<LibraryContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("Connection")));
+    options.UseSqlite(connectionString));
 
 
 builder.Services.AddIdentity<AppUser, IdentityRole>()
     .AddEntityFrameworkStores<LibraryContext>()
     .AddDefaultTokenProviders();
 
-    builder.Services.AddAuthentication(options =>
+builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -71,10 +79,10 @@ builder.Services.AddIdentity<AppUser, IdentityRole>()
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidAudience = builder.Configuration["Jwt:Audience"],
+        ValidIssuer = builder.Configuration["JWT:Issuer"],
+        ValidAudience = builder.Configuration["JWT:Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+            Encoding.UTF8.GetBytes(builder.Configuration["JWT:Key"]))
     };
 });
 
