@@ -1,0 +1,13 @@
+.git/
+bin/
+obj/
+out/
+Dockerfile
+.dockerignore
+.vs/
+.vscode/
+appsettings.Development.json
+*.db
+*.db-journal
+*.db-shm
+*.db-wal

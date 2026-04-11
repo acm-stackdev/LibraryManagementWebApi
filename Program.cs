@@ -54,12 +54,21 @@ var connectionString = builder.Configuration.GetConnectionString("Connection");
 
 if (Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true")
 {
-    connectionString = "Data Source=/app/library.db";
+    // Use DATABASE_URL for Render's PostgreSQL or fall back to the connection string
+    connectionString = Environment.GetEnvironmentVariable("DATABASE_URL") ?? connectionString;
 }
 
-
 builder.Services.AddDbContext<LibraryContext>(options =>
-    options.UseSqlite(connectionString));
+{
+    if (Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true")
+    {
+        options.UseNpgsql(connectionString);
+    }
+    else
+    {
+        options.UseSqlite(connectionString);
+    }
+});
 
 
 builder.Services.AddIdentity<AppUser, IdentityRole>()
@@ -163,7 +172,13 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// Render terminates SSL at the edge and handles redirection. 
+// Using HttpsRedirection in the container can cause redirect loops.
+if (Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") != "true")
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
