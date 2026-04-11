@@ -50,7 +50,9 @@ builder.Services.AddScoped<EmailService>();
 
 
 
-var connectionString = builder.Configuration.GetConnectionString("Connection");
+var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL") 
+    ?? builder.Configuration.GetConnectionString("Connection") 
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
 if (Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true")
 {
@@ -79,7 +81,9 @@ if (string.IsNullOrEmpty(connectionString))
 
 builder.Services.AddDbContext<LibraryContext>(options =>
 {
-    if (Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true")
+    // If it's a PostgreSQL connection string (contains "Host=" or starts with "postgres://")
+    if (connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase) || 
+        connectionString.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase))
     {
         options.UseNpgsql(connectionString);
     }
