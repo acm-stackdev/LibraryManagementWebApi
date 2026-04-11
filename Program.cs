@@ -54,8 +54,27 @@ var connectionString = builder.Configuration.GetConnectionString("Connection");
 
 if (Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true")
 {
-    // Use DATABASE_URL for Render's PostgreSQL or fall back to the connection string
-    connectionString = Environment.GetEnvironmentVariable("DATABASE_URL") ?? connectionString;
+    var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+    if (!string.IsNullOrEmpty(databaseUrl))
+    {
+        // If it's a postgres:// URI, we need to convert it for Npgsql
+        if (databaseUrl.StartsWith("postgres://"))
+        {
+            var databaseUri = new Uri(databaseUrl);
+            var userInfo = databaseUri.UserInfo.Split(':');
+
+            connectionString = $"Host={databaseUri.Host};Port={databaseUri.Port};Database={databaseUri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Require;Trust Server Certificate=true";
+        }
+        else
+        {
+            connectionString = databaseUrl;
+        }
+    }
+}
+
+if (string.IsNullOrEmpty(connectionString))
+{
+    throw new InvalidOperationException("Connection string is null or empty. Ensure DATABASE_URL is set in Render environment variables.");
 }
 
 builder.Services.AddDbContext<LibraryContext>(options =>
