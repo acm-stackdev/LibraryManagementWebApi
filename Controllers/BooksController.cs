@@ -30,21 +30,7 @@ namespace BackendApi.Controllers
                 if(!books.Any()){
                     return NotFound("No books found.");
                 }
-
-                var bookDtos = books.Select(b => new BookDTO
-                {
-                    BookId = b.BookId,
-                    Title = b.Title,
-                    ISBN = b.ISBN,
-                    CategoryId = b.CategoryId,
-                    PublishedYear = b.PublishedYear,
-                    Description = b.Description,
-                    TotalPages = b.TotalPages,
-                    CategoryName = b.Category?.Name,
-                    AuthorNames = b.BookAuthors.Select(ba => ba.Author?.Name ?? "Unknown").ToList()
-                });
-
-                return Ok(bookDtos);
+                return Ok(books);
         }
 
         // GET: api/Books/5
@@ -55,21 +41,7 @@ namespace BackendApi.Controllers
             if(book == null){
                 return NotFound($"Book with ID {id} not found.");
             }
-
-            var bookDto = new BookDTO
-            {
-                BookId = book.BookId,
-                Title = book.Title,
-                ISBN = book.ISBN,
-                CategoryId = book.CategoryId,
-                PublishedYear = book.PublishedYear,
-                Description = book.Description,
-                TotalPages = book.TotalPages,
-                CategoryName = book.Category?.Name,
-                AuthorNames = book.BookAuthors.Select(ba => ba.Author?.Name ?? "Unknown").ToList()
-            };
-
-            return Ok(bookDto);
+            return Ok(book);
         }
 
         // PUT: api/Books/5
@@ -82,21 +54,15 @@ namespace BackendApi.Controllers
                     return BadRequest("Book must have at least one author.");
                 }
 
-                var book = await _bookService.GetByIdAsync(id);
-                if(book == null)
+                try 
                 {
-                    return NotFound($"Book with ID {id} not found.");
+                    await _bookService.UpdateBookAsync(id, dto);
+                    return NoContent();
                 }
-
-                book.Title = dto.Title;
-                book.ISBN = dto.ISBN;
-                book.CategoryId = dto.CategoryId;
-                book.PublishedYear = dto.PublishedYear;
-                book.Description = dto.Description;
-                book.TotalPages = dto.TotalPages;
-
-                await _bookService.UpdateBookAsync(book, dto.AuthorNames);
-                return NoContent();
+                catch (Exception ex)
+                {
+                    return NotFound(ex.Message);
+                }
         }
 
         // POST: api/Books
@@ -127,22 +93,8 @@ namespace BackendApi.Controllers
                     TotalPages = dto.TotalPages,
                 };
                 
-                var createdBook = await _bookService.CreateBookAsync(book, dto.AuthorNames);
-
-                var bookDto = new BookDTO
-                {
-                    BookId = createdBook.BookId,
-                    Title = createdBook.Title,
-                    ISBN = createdBook.ISBN,
-                    CategoryId = createdBook.CategoryId,
-                    PublishedYear = createdBook.PublishedYear,
-                    Description = createdBook.Description,
-                    TotalPages = createdBook.TotalPages,
-                    CategoryName = createdBook.Category?.Name,
-                    AuthorNames = createdBook.BookAuthors.Select(ba => ba.Author?.Name ?? "Unknown").ToList()
-                };
-
-                return CreatedAtAction(nameof(GetBook), new { id = bookDto.BookId }, bookDto);
+                var createdBookDto = await _bookService.CreateBookAsync(book, dto.AuthorNames);
+                return CreatedAtAction(nameof(GetBook), new { id = createdBookDto.BookId }, createdBookDto);
         }
 
         // DELETE: api/Books/5
