@@ -19,6 +19,13 @@ namespace LibraryManagementSystem.Models
         [Required]
         public int CategoryId { get; set; }
 
+        public int PublishedYear { get; set; }
+
+        [StringLength(1000)]
+        public string? Description { get; set; }
+
+        public int TotalPages { get; set; }
+
         [JsonIgnore]
         public Category? Category { get; set; }
 

@@ -15,5 +15,15 @@ namespace LibraryManagementSystem.DTOs{
         
         [Required]
         public int CategoryId { get; set; }
+
+        public int PublishedYear { get; set; }
+
+        public string? Description { get; set; }
+
+        public int TotalPages { get; set; }
+
+        public string? CategoryName { get; set; }
+
+        public List<string> AuthorNames { get; set; } = new List<string>();
     }
 }
