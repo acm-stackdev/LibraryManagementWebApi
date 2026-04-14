@@ -5,7 +5,8 @@ namespace LibraryManagementSystem.DTOs{
     public class ResetPasswordDTO
     {
         [Required]
-        public string UserId { get; set; }
+        [EmailAddress]
+        public string Email { get; set; }
 
         [Required]
         public string Token { get; set; }

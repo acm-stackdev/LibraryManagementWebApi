@@ -140,7 +140,14 @@ namespace BackendApi.Controllers
               var roles = await _userManager.GetRolesAsync(user);
               var token = GenerateJwtToken(user, roles);
               
-              return Ok(new { Token = token });
+              return Ok(new 
+              { 
+                Token = token,
+                Id = user.Id,
+                Name = user.Name,
+                Username = user.UserName,
+                Roles = roles
+              });
             }
             return Unauthorized("Invalid email or password.");
         }
@@ -159,33 +166,24 @@ namespace BackendApi.Controllers
             var user = await _userManager.FindByEmailAsync(dto.Email);
             if(user == null || !(await _userManager.IsEmailConfirmedAsync(user)))
             {
-                return Ok("If your email is registered and confirmed, a reset link has been sent.");
+                // For security reasons, don't reveal that the user does not exist or is not confirmed
+                return Ok("If your email is registered and confirmed, a reset code has been sent.");
             }
 
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
 
-            // Generate reset link
-            var resetLink = Url.Action(
-                "ResetPassword",
-                "Account",
-                new { userId = user.Id, token },
-                Request.Scheme
-            );
-
-            // Send email
+            // Send email with the code
             _emailService.SendEmail(
                 user.Email,
-                "Password Reset Request",
+                "Password Reset Code",
                 $@"
         <html>
         <body style='font-family: Arial, sans-serif; line-height:1.6; color: #333;'>
             <h2>Password Reset Request</h2>
             <p>Hi {user.Name},</p>
-            <p>You requested to reset your password. Click the button below to reset it:</p>
-            <p style='text-align:center;'>
-                <a href='{resetLink}' style='background-color:#3498DB;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;'>
-                Reset Password
-                </a>
+            <p>You requested to reset your password. Use the code below to reset it:</p>
+            <p style='text-align:center; font-size: 24px; font-weight: bold; color: #3498DB; letter-spacing: 5px;'>
+                {token}
             </p>
             <hr>
             <p style='font-size:12px;color:#888;'>If you did not request this, you can ignore this email.</p>
@@ -193,22 +191,20 @@ namespace BackendApi.Controllers
         </html>"
             );
 
-            return Ok("If your email is registered and confirmed, a reset link has been sent.");
+            return Ok("If your email is registered and confirmed, a reset code has been sent.");
         }
 
         //reset password
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword(ResetPasswordDTO dto)
         {
-            var user = await _userManager.FindByIdAsync(dto.UserId);
+            var user = await _userManager.FindByEmailAsync(dto.Email);
             if(user == null)
             {
-                return BadRequest("Invalid user.");
+                return BadRequest("Invalid request.");
             }
 
-            var decodedToken = HttpUtility.UrlDecode(dto.Token);
-
-            var result = await _userManager.ResetPasswordAsync(user, decodedToken, dto.NewPassword);
+            var result = await _userManager.ResetPasswordAsync(user, dto.Token, dto.NewPassword);
 
             if(result.Succeeded)
             {

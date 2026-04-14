@@ -106,7 +106,10 @@ builder.Services.AddDbContext<LibraryContext>(options =>
 });
 
 
-builder.Services.AddIdentity<AppUser, IdentityRole>()
+builder.Services.AddIdentity<AppUser, IdentityRole>(options =>
+{
+    options.Tokens.PasswordResetTokenProvider = TokenOptions.DefaultEmailProvider;
+})
     .AddEntityFrameworkStores<LibraryContext>()
     .AddDefaultTokenProviders();
 
