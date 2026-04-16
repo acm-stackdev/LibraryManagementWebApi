@@ -8,4 +8,5 @@ public interface IWishlistService
     Task<Wishlist> AddToWishlistAsync(string userId, int bookId);
     Task RemoveFromWishlistAsync(int wishlistId);
     Task<Wishlist?> GetByIdAsync(int wishlistId);
+    Task<IEnumerable<WishlistSummaryDto>> GetWishlistSummaryAsync();
 }

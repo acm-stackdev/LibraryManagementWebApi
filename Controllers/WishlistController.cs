@@ -17,7 +17,7 @@ namespace BackendApi.Controllers
     public class WishlistController : ControllerBase
     {
         private readonly IWishlistService _wishlistService;
-    private readonly ILogger<WishlistController> _logger;
+        private readonly ILogger<WishlistController> _logger;
 
         public WishlistController(IWishlistService wishlistService, ILogger<WishlistController> logger)
         {
@@ -25,64 +25,80 @@ namespace BackendApi.Controllers
             _logger = logger;
         }
 
-        // GET: api/Wishlist
+        // GET: api/Wishlist for current user
         [HttpGet]
         public async Task<ActionResult<IEnumerable<WishlistDto>>> GetMyWishlists()
         {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                if (userId == null) return Unauthorized();
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null) return Unauthorized();
 
-                if (User.IsInRole("Admin"))
-                {
-                    var allItems = await _wishlistService.GetAllWishlistDtosAsync();
-                    return Ok(allItems);
-                }
+            var items = await _wishlistService.GetWishlistDtosByUserIdAsync(userId);
+            return Ok(items);
+        }
 
-                var items = await _wishlistService.GetWishlistDtosByUserIdAsync(userId);
-                return Ok(items);
+        // GET: api/Wishlist/admin/all
+        // Admin only: View every user's wishlist items
+        [HttpGet("admin/all")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<IEnumerable<WishlistDto>>> GetAllWishlists()
+        {
+            var allItems = await _wishlistService.GetAllWishlistDtosAsync();
+            return Ok(allItems);
+        }
+
+        // GET: api/Wishlist/admin/summary
+        // Admin only: View which books are most popular in wishlists
+        [HttpGet("admin/summary")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<IEnumerable<WishlistSummaryDto>>> GetWishlistSummary()
+        {
+            var summary = await _wishlistService.GetWishlistSummaryAsync();
+            return Ok(summary);
         }
 
         // POST: api/Wishlist/{bookId}
         [HttpPost("{bookId}")]
-        public async Task<ActionResult<Wishlist>> AddToWishlist(int bookId)
+        public async Task<ActionResult<WishlistDto>> AddToWishlist(int bookId)
         {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                if (userId == null) return Unauthorized();
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null) return Unauthorized();
 
-                var item = await _wishlistService.AddToWishlistAsync(userId, bookId);
+            var item = await _wishlistService.AddToWishlistAsync(userId, bookId);
 
-                // Map entity to DTO using the service helper
-                var dto = new WishlistDto
+            var dto = new WishlistDto
+            {
+                WishlistId = item.WishlistId,
+                BookId = item.BookId,
+                BookTitle = item.Book?.Title ?? "Unknown",
+                Authors = item.Book?.BookAuthors?.Select(ba => new AuthorDTO
                 {
-                    WishlistId = item.WishlistId,
-                    BookId = item.BookId,
-                    BookTitle = item.Book!.Title,
-                    Authors = item.Book.BookAuthors!.Select(ba => new AuthorDTO
-                    {
-                        AuthorId = ba.Author!.AuthorId,
-                        Name = ba.Author!.Name
-                    }).ToList(),
-                    CreatedAt = item.CreatedAt
-                };
+                    AuthorId = ba.Author?.AuthorId ?? 0,
+                    Name = ba.Author?.Name ?? "Unknown"
+                }).ToList() ?? new List<AuthorDTO>(),
+                CreatedAt = item.CreatedAt,
+                UserId = item.UserId,
+                UserEmail = item.User?.Email ?? "Unknown"
+            };
 
-                return CreatedAtAction(nameof(GetMyWishlists), dto);
+            return CreatedAtAction(nameof(GetMyWishlists), dto);
         }
 
-        // DELETE: api/Wishlist/{wishlistId}
+        // DELETE: api/Wishlist/{wishlistId} for current user even for admin
         [HttpDelete("{wishlistId}")]
         public async Task<IActionResult> RemoveFromWishlist(int wishlistId)
         {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                if (userId == null) return Unauthorized();
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null) return Unauthorized();
 
-                var wishlist = await _wishlistService.GetByIdAsync(wishlistId);
-                if (wishlist == null) return NotFound();
+            var wishlist = await _wishlistService.GetByIdAsync(wishlistId);
+            if (wishlist == null) return NotFound();
 
-                if (wishlist.UserId != userId && !User.IsInRole("Admin"))
-                    return Forbid();
+            // Ownership check (Admins cannot delete other users' wishlist items)
+            if (wishlist.UserId != userId)
+                return Forbid();
 
-                await _wishlistService.RemoveFromWishlistAsync(wishlistId);
-                return NoContent();
+            await _wishlistService.RemoveFromWishlistAsync(wishlistId);
+            return NoContent();
         }
     }
 }

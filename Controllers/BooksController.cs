@@ -69,7 +69,7 @@ namespace BackendApi.Controllers
         // POST: api/Books
         [HttpPost]
         [Authorize(Roles = "Admin")]
-        public async Task<ActionResult<BookDTO>> CreateBook(CreateBookDTO dto)
+        public async Task<ActionResult<BookDTO>> CreateBook([FromBody] CreateBookDTO dto)
         {
             if (dto == null)
             {

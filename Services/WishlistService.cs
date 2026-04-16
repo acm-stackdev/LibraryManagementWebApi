@@ -15,6 +15,7 @@ public class WishlistService : IWishlistService
     {
         var items = await _context.Wishlists
             .Where(w => w.UserId == userId)
+            .Include(w => w.User)
             .Include(w => w.Book)
                 .ThenInclude(b => b.BookAuthors)
                     .ThenInclude(ba => ba.Author)
@@ -26,19 +27,28 @@ public class WishlistService : IWishlistService
     public async Task<IEnumerable<WishlistDto>> GetAllWishlistDtosAsync()
     {
         var items = await _context.Wishlists
-        .Include(w => w.User)
-        .Include(w => w.Book)
-            .ThenInclude(b => b.BookAuthors)
-                .ThenInclude(ba => ba.Author)
-        .ToListAsync();
+            .Include(w => w.User)
+            .Include(w => w.Book)
+                .ThenInclude(b => b.BookAuthors)
+                    .ThenInclude(ba => ba.Author)
+            .ToListAsync();
 
-    return items.Select(MapToDto);
+        return items.Select(MapToDto);
     }
 
     public async Task<Wishlist> AddToWishlistAsync(string userId, int bookId)
     {
-        // Check if the book is already in the wishlist
+        var bookExists = await _context.Books.AnyAsync(b => b.BookId == bookId);
+        if (!bookExists)
+        {
+            throw new KeyNotFoundException($"Book with ID {bookId} not found.");
+        }
+
         var existing = await _context.Wishlists
+            .Include(w => w.Book)
+                .ThenInclude(b => b.BookAuthors)
+                    .ThenInclude(ba => ba.Author)
+            .Include(w => w.User)
             .FirstOrDefaultAsync(w => w.UserId == userId && w.BookId == bookId);
 
         if (existing != null) return existing;
@@ -47,22 +57,14 @@ public class WishlistService : IWishlistService
         {
             UserId = userId,
             BookId = bookId,
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         };
 
         _context.Wishlists.Add(wishlist);
         await _context.SaveChangesAsync();
         
-        await _context.Entry(wishlist).Reference(w => w.User).LoadAsync();
-        await _context.Entry(wishlist).Reference(w => w.Book).LoadAsync();
-        await _context.Entry(wishlist.Book!).Collection(b => b.BookAuthors).LoadAsync();
-
-        foreach (var ba in wishlist.Book!.BookAuthors ?? Enumerable.Empty<BookAuthor>())
-        {
-            await _context.Entry(ba).Reference(ba => ba.Author).LoadAsync();
-        }
-
-        return wishlist;
+        // Re-fetch to load all navigation properties including nested ones
+        return await GetByIdAsync(wishlist.WishlistId) ?? wishlist;
     }
 
     public async Task RemoveFromWishlistAsync(int wishlistId)
@@ -85,21 +87,34 @@ public class WishlistService : IWishlistService
             .FirstOrDefaultAsync(w => w.WishlistId == wishlistId);
     }
 
+    public async Task<IEnumerable<WishlistSummaryDto>> GetWishlistSummaryAsync()
+    {
+        return await _context.Wishlists
+            .GroupBy(w => new { w.BookId, w.Book!.Title })
+            .Select(g => new WishlistSummaryDto
+            {
+                BookId = g.Key.BookId,
+                BookTitle = g.Key.Title,
+                WishlistCount = g.Count()
+            })
+            .ToListAsync();
+    }
+
     private WishlistDto MapToDto(Wishlist w)
     {
         return new WishlistDto
         {
             WishlistId = w.WishlistId,
             BookId = w.BookId,
-            BookTitle = w.Book!.Title ?? "Unknown",
-            Authors = w.Book.BookAuthors!.Select(ba => new AuthorDTO
-        {
-            AuthorId = ba.Author!.AuthorId,
-            Name = ba.Author!.Name
-        }).ToList(),
+            BookTitle = w.Book?.Title ?? "Unknown",
+            Authors = w.Book?.BookAuthors?.Select(ba => new AuthorDTO
+            {
+                AuthorId = ba.Author?.AuthorId ?? 0,
+                Name = ba.Author?.Name ?? "Unknown"
+            }).ToList() ?? new List<AuthorDTO>(),
             CreatedAt = w.CreatedAt,
             UserId = w.UserId,
-            UserEmail = w.User!.Email ?? "Unknown"
+            UserEmail = w.User?.Email ?? "Unknown"
         };
     }
 }
