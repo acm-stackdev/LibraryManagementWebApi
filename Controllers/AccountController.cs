@@ -123,7 +123,10 @@ namespace BackendApi.Controllers
 
               if(!user.EmailConfirmed)
               {
-                return Unauthorized("Please confirm your email first.");
+                return StatusCode(403, new { 
+                  message = "Please confirm your email first.", 
+                  code = "EMAIL_NOT_CONFIRMED" 
+                });
               }   
 
               var subscription = await _context.Subscriptions.FirstOrDefaultAsync(s => s.UserId == user.Id && s.IsActive);

@@ -1,185 +1,159 @@
 using LibraryManagementSystem.Models;
 using LibraryManagementSystem.DTOs;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
-public class BookService : IBookService
+namespace BackendApi.Services
 {
-    private readonly LibraryContext _context;
-
-    public BookService(LibraryContext context)
+    public class BookService : IBookService
     {
-        _context = context;
-    }
+        private readonly LibraryContext _context;
 
-    // Map Book entity to BookDTO
-    private BookDTO MapToDTO(Book book)
-    {
-        return new BookDTO
+        public BookService(LibraryContext context)
         {
-            BookId = book.BookId,
-            Title = book.Title,
-            ISBN = book.ISBN,
-            CategoryId = book.CategoryId,
-            PublishedYear = book.PublishedYear,
-            Description = book.Description,
-            TotalPages = book.TotalPages,
-            CategoryName = book.Category?.Name,
-            AuthorNames = book.BookAuthors?.Select(ba => ba.Author?.Name ?? "Unknown").ToList() ?? new List<string>()
-        };
-    }
+            _context = context;
+        }
 
-    // Get all books as DTOs
-    public async Task<IEnumerable<BookDTO>> GetAllAsync()
-    {
-        var books = await _context.Books
-            .Include(b => b.Category)
-            .Include(b => b.BookAuthors)
-                .ThenInclude(ba => ba.Author)
-            .ToListAsync();
-
-        return books.Select(MapToDTO);
-    }
-
-    // Get one book by Id as DTO
-    public async Task<BookDTO?> GetByIdAsync(int id)
-    {
-        var book = await _context.Books
-            .Include(b => b.Category)
-            .Include(b => b.BookAuthors)
-                .ThenInclude(ba => ba.Author)
-            .FirstOrDefaultAsync(b => b.BookId == id);
-
-        return book != null ? MapToDTO(book) : null;
-    }
-
-    // Create a new book and handle authors 
-    public async Task<BookDTO> CreateBookAsync(Book book, List<string> authorNames)
-    {
-        var categoryName = book.Category?.Name;
-        if (string.IsNullOrWhiteSpace(categoryName))
+        // Map Book entity to BookDTO
+        private BookDTO MapToDTO(Book book)
         {
-            if (book.CategoryId != 0)
+            return new BookDTO
             {
-                categoryName = await _context.Categories
-                    .Where(c => c.CategoryId == book.CategoryId)
-                    .Select(c => c.Name)
-                    .FirstOrDefaultAsync();
-            }
+                BookId = book.BookId,
+                Title = book.Title,
+                ISBN = book.ISBN,
+                CategoryId = book.CategoryId,
+                PublishedYear = book.PublishedYear,
+                Description = book.Description,
+                TotalPages = book.TotalPages,
+                CategoryName = book.Category?.Name,
+                AuthorNames = book.BookAuthors?.Select(ba => ba.Author?.Name ?? "Unknown").ToList() ?? new List<string>()
+            };
         }
 
-        if (string.IsNullOrWhiteSpace(categoryName))
+        // Get all books as DTOs
+        public async Task<IEnumerable<BookDTO>> GetAllAsync()
         {
-            throw new ArgumentException("Category name is required to create a book.");
+            var books = await _context.Books
+                .Include(b => b.Category)
+                .Include(b => b.BookAuthors)
+                    .ThenInclude(ba => ba.Author)
+                .ToListAsync();
+
+            return books.Select(MapToDTO);
         }
 
-        var createdBook = await CreateBookAsync(book, categoryName, authorNames);
-        return MapToDTO(createdBook);
-    }
-
-    // Create a new book and handle authors and category
-    public async Task<Book> CreateBookAsync(Book book, string categoryName, List<string> authorNames)
-    {
-
-        var category = await _context.Categories
-            .FirstOrDefaultAsync(c => c.Name == categoryName);
-
-        if (category == null)
+        // Get one book by Id as DTO
+        public async Task<BookDTO?> GetByIdAsync(int id)
         {
-            category = new Category { Name = categoryName };
-            _context.Categories.Add(category);
+            var book = await _context.Books
+                .Include(b => b.Category)
+                .Include(b => b.BookAuthors)
+                    .ThenInclude(ba => ba.Author)
+                .FirstOrDefaultAsync(b => b.BookId == id);
+
+            return book != null ? MapToDTO(book) : null;
+        }
+
+        public async Task<BookDTO?> GetByISBNAsync(string isbn)
+        {
+            var book = await _context.Books
+                .Include(b => b.Category)
+                .Include(b => b.BookAuthors)
+                    .ThenInclude(ba => ba.Author)
+                .FirstOrDefaultAsync(b => b.ISBN == isbn);
+
+            return book != null ? MapToDTO(book) : null;
+        }
+
+        // Create a new book and handle authors
+        public async Task<BookDTO> CreateBookAsync(CreateBookDTO dto)
+        {
+            var book = new Book
+            {
+                Title = dto.Title,
+                ISBN = dto.ISBN,
+                CategoryId = dto.CategoryId,
+                PublishedYear = dto.PublishedYear,
+                Description = dto.Description,
+                TotalPages = dto.TotalPages,
+                BookAuthors = new List<BookAuthor>()
+            };
+
+            await HandleAuthorsAsync(book, dto.AuthorNames);
+
+            _context.Books.Add(book);
             await _context.SaveChangesAsync();
+
+            // Return fully loaded DTO
+            return await GetByIdAsync(book.BookId);
         }
 
-        book.CategoryId = category.CategoryId;
-
-        book.BookAuthors = new List<BookAuthor>();
-
-        foreach (var name in authorNames)
+        // Update book details and authors
+        public async Task<BookDTO?> UpdateBookAsync(int id, UpdateBookDTO dto)
         {
-             var normalizedName = name.Trim().ToUpper();
-            var existingAuthor = await _context.Authors
-                .FirstOrDefaultAsync(a => a.Name.ToUpper() == normalizedName);
+            var book = await _context.Books
+                .Include(b => b.BookAuthors)
+                .FirstOrDefaultAsync(b => b.BookId == id);
 
-            if (existingAuthor == null)
-            {
-                var newAuthor = new Author { Name = normalizedName };
-                _context.Authors.Add(newAuthor);
-                await _context.SaveChangesAsync();
-                book.BookAuthors.Add(new BookAuthor { AuthorId = newAuthor.AuthorId });
-            }
-            else
-            {
-                book.BookAuthors.Add(new BookAuthor { AuthorId = existingAuthor.AuthorId });
-            }
-        }
+            if (book == null) return null;
 
-        // Add the book
-        _context.Books.Add(book);
-        await _context.SaveChangesAsync();
-        return book;
-    }
+            book.Title = dto.Title;
+            book.ISBN = dto.ISBN;
+            book.CategoryId = dto.CategoryId;
+            book.PublishedYear = dto.PublishedYear;
+            book.Description = dto.Description;
+            book.TotalPages = dto.TotalPages;
 
-    public async Task<Book?> GetByISBNAsync(string isbn)
-    {
-        return await _context.Books
-            .Include(b => b.BookAuthors)
-                .ThenInclude(ba => ba.Author)
-            .FirstOrDefaultAsync(b => b.ISBN == isbn);  
-    }
+            // Remove existing author links
+            _context.BookAuthors.RemoveRange(book.BookAuthors);
+            book.BookAuthors.Clear();
 
-    // Update book details and authors
-    public async Task UpdateBookAsync(int id, UpdateBookDTO dto)
-    {
-        var book = await _context.Books.FindAsync(id);
-        if (book == null) throw new Exception($"Book with ID {id} not found.");
+            // Handle new author links
+            await HandleAuthorsAsync(book, dto.AuthorNames);
 
-        book.Title = dto.Title;
-        book.ISBN = dto.ISBN;
-        book.CategoryId = dto.CategoryId;
-        book.PublishedYear = dto.PublishedYear;
-        book.Description = dto.Description;
-        book.TotalPages = dto.TotalPages;
-
-        var existingLinks = _context.BookAuthors.Where(ba => ba.BookId == book.BookId);
-        _context.BookAuthors.RemoveRange(existingLinks);
-
-        book.BookAuthors = new List<BookAuthor>();
-        foreach (var name in dto.AuthorNames)
-        {
-            var normalizedName = name.Trim().ToUpper();
-            var existingAuthor = await _context.Authors
-                .FirstOrDefaultAsync(a => a.Name.ToUpper() == normalizedName);
-
-            if (existingAuthor == null)
-            {
-                var newAuthor = new Author { Name = normalizedName };
-                _context.Authors.Add(newAuthor);
-                await _context.SaveChangesAsync();
-                book.BookAuthors.Add(new BookAuthor { AuthorId = newAuthor.AuthorId });
-            }
-            else
-            {
-                book.BookAuthors.Add(new BookAuthor { AuthorId = existingAuthor.AuthorId });
-            }
-        }
-
-        // Update book entity
-        _context.Entry(book).State = EntityState.Modified;
-        await _context.SaveChangesAsync();
-    }
-
-    // Delete a book
-    public async Task DeleteBookAsync(int id)
-    {
-        var book = await _context.Books.FindAsync(id);
-        if (book != null)
-        {
-            // Remove related BookAuthors first
-            var links = _context.BookAuthors.Where(ba => ba.BookId == id);
-            _context.BookAuthors.RemoveRange(links);
-
-            _context.Books.Remove(book);
+            _context.Entry(book).State = EntityState.Modified;
             await _context.SaveChangesAsync();
+
+            return await GetByIdAsync(book.BookId);
+        }
+
+        private async Task HandleAuthorsAsync(Book book, List<string> authorNames)
+        {
+            foreach (var name in authorNames)
+            {
+                var normalizedName = name.Trim();
+                var existingAuthor = await _context.Authors
+                    .FirstOrDefaultAsync(a => a.Name.ToLower() == normalizedName.ToLower());
+
+                if (existingAuthor == null)
+                {
+                    existingAuthor = new Author { Name = normalizedName };
+                    _context.Authors.Add(existingAuthor);
+                    // EF will handle the author creation when saving the book/book-author link
+                }
+
+                book.BookAuthors.Add(new BookAuthor { Author = existingAuthor });
+            }
+        }
+
+        // Delete a book
+        public async Task DeleteBookAsync(int id)
+        {
+            var book = await _context.Books.FindAsync(id);
+            if (book != null)
+            {
+                // Related BookAuthors are usually deleted via Cascade Delete if configured, 
+                // but let's be explicit if needed.
+                var links = _context.BookAuthors.Where(ba => ba.BookId == id);
+                _context.BookAuthors.RemoveRange(links);
+
+                _context.Books.Remove(book);
+                await _context.SaveChangesAsync();
+            }
         }
     }
 }

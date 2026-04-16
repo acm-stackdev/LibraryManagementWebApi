@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using LibraryManagementSystem.Models;
 using LibraryManagementSystem.DTOs;
 using Microsoft.AspNetCore.Authorization;
+using BackendApi.Services;
 
 namespace BackendApi.Controllers
 {
@@ -26,11 +27,12 @@ namespace BackendApi.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<BookDTO>>> GetBooks()
         {
-                var books = await _bookService.GetAllAsync();
-                if(!books.Any()){
-                    return NotFound("No books found.");
-                }
-                return Ok(books);
+            var books = await _bookService.GetAllAsync();
+            if (books == null || !books.Any())
+            {
+                return NotFound("No books found.");
+            }
+            return Ok(books);
         }
 
         // GET: api/Books/5
@@ -38,7 +40,8 @@ namespace BackendApi.Controllers
         public async Task<ActionResult<BookDTO>> GetBook(int id)
         {
             var book = await _bookService.GetByIdAsync(id);
-            if(book == null){
+            if (book == null)
+            {
                 return NotFound($"Book with ID {id} not found.");
             }
             return Ok(book);
@@ -49,20 +52,18 @@ namespace BackendApi.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateBook(int id, UpdateBookDTO dto)
         {
-                if(dto.AuthorNames == null || !dto.AuthorNames.Any())
-                {
-                    return BadRequest("Book must have at least one author.");
-                }
+            if (dto.AuthorNames == null || !dto.AuthorNames.Any())
+            {
+                return BadRequest("Book must have at least one author.");
+            }
 
-                try 
-                {
-                    await _bookService.UpdateBookAsync(id, dto);
-                    return NoContent();
-                }
-                catch (Exception ex)
-                {
-                    return NotFound(ex.Message);
-                }
+            var updatedBook = await _bookService.UpdateBookAsync(id, dto);
+            if (updatedBook == null)
+            {
+                return NotFound($"Book with ID {id} not found.");
+            }
+
+            return NoContent();
         }
 
         // POST: api/Books
@@ -70,31 +71,24 @@ namespace BackendApi.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult<BookDTO>> CreateBook(CreateBookDTO dto)
         {
-                if(dto == null){
-                    return BadRequest("Book cannot be null.");
-                }
+            if (dto == null)
+            {
+                return BadRequest("Book data is required.");
+            }
 
-                if(dto.AuthorNames == null || !dto.AuthorNames.Any()){
-                    return BadRequest("Author names are required.");
-                }
+            if (dto.AuthorNames == null || !dto.AuthorNames.Any())
+            {
+                return BadRequest("At least one author name is required.");
+            }
 
-                var existingBook = await _bookService.GetByISBNAsync(dto.ISBN);
-                if(existingBook != null)
-                {
-                    return Conflict($"Book with ISBN {dto.ISBN} already exists.");
-                }
+            var existingBook = await _bookService.GetByISBNAsync(dto.ISBN);
+            if (existingBook != null)
+            {
+                return Conflict($"Book with ISBN {dto.ISBN} already exists.");
+            }
 
-                var book = new Book{
-                    Title = dto.Title,
-                    ISBN = dto.ISBN,
-                    CategoryId = dto.CategoryId,
-                    PublishedYear = dto.PublishedYear,
-                    Description = dto.Description,
-                    TotalPages = dto.TotalPages,
-                };
-                
-                var createdBookDto = await _bookService.CreateBookAsync(book, dto.AuthorNames);
-                return CreatedAtAction(nameof(GetBook), new { id = createdBookDto.BookId }, createdBookDto);
+            var createdBookDto = await _bookService.CreateBookAsync(dto);
+            return CreatedAtAction(nameof(GetBook), new { id = createdBookDto.BookId }, createdBookDto);
         }
 
         // DELETE: api/Books/5
@@ -102,8 +96,14 @@ namespace BackendApi.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeleteBook(int id)
         {
-                await _bookService.DeleteBookAsync(id);
-                return NoContent();
+            var book = await _bookService.GetByIdAsync(id);
+            if (book == null)
+            {
+                return NotFound($"Book with ID {id} not found.");
+            }
+
+            await _bookService.DeleteBookAsync(id);
+            return NoContent();
         }
     }
 }
