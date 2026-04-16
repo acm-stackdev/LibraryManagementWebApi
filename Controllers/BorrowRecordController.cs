@@ -26,19 +26,25 @@ namespace BackendApi.Controllers
         }
 
         // GET: api/BorrowRecord
+        // Returns ONLY the logged-in user's borrow history (User or Admin)
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<BorrowRecordDTO>>> GetBorrowRecords()
+        public async Task<ActionResult<IEnumerable<BorrowRecordDTO>>> GetMyBorrowRecords()
         {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                if(User.IsInRole("Admin"))
-                {
-                    var allRecords = await _borrowRecordService.GetAllAsync();
-                    return Ok(allRecords);
-                }else
-                {
-                    var userRecords = await _borrowRecordService.GetBorrowRecordsByUserIdAsync(userId);
-                    return Ok(userRecords);
-                }
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null) return Unauthorized();
+
+            var userRecords = await _borrowRecordService.GetBorrowRecordsByUserIdAsync(userId);
+            return Ok(userRecords);
+        }
+
+        // GET: api/BorrowRecord/admin/all
+        // Admin only: View all borrowing history in the system
+        [HttpGet("admin/all")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<IEnumerable<BorrowRecordDTO>>> GetAllBorrowRecords()
+        {
+            var allRecords = await _borrowRecordService.GetAllAsync();
+            return Ok(allRecords);
         }
 
         // GET: api/BorrowRecord/user/{userId}
@@ -46,53 +52,45 @@ namespace BackendApi.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<BorrowRecordDTO>>> GetUserBorrowRecords(string userId)
         {
-                var records = await _borrowRecordService.GetBorrowRecordsByUserIdAsync(userId);
-                return Ok(records);
+            var records = await _borrowRecordService.GetBorrowRecordsByUserIdAsync(userId);
+            return Ok(records);
         }
 
-        // GET: api/BorrowRecord/id
-        [HttpGet("id")]
+        // GET: api/BorrowRecord/{id}
+        [HttpGet("{id}")]
         public async Task<ActionResult<BorrowRecordDTO>> GetBorrowRecordById(int id)
         {
-                var record = await _borrowRecordService.GetByIdAsync(id);
-                if (record == null)
-                    return NotFound();
+            var record = await _borrowRecordService.GetByIdAsync(id);
+            if (record == null)
+                return NotFound();
 
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-                if (!User.IsInRole("Admin") && record.UserId != userId)
-                    return Forbid();
+            // Users can only see their own specific record; Admins see any.
+            if (!User.IsInRole("Admin") && record.UserId != userId)
+                return Forbid();
 
-                return Ok(record);
+            return Ok(record);
         }
 
-        //Post: api/BorrowRecord/borrow/{bookId}
+        // Post: api/BorrowRecord/borrow/{bookId}
         [HttpPost("borrow/{bookId}")]
         [Authorize(Roles = "Member")]
         public async Task<ActionResult<BorrowRecordDTO>> BorrowBook(int bookId)
         {
-           var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null) return Unauthorized();
 
-                var record = await _borrowRecordService.BorrowBookAsync(userId, bookId);
-                return Ok(record);
+            var record = await _borrowRecordService.BorrowBookAsync(userId, bookId);
+            return Ok(record);
         }
 
         // Return: api/BorrowRecord/return/5
         [HttpDelete("return/{borrowRecordId}")]
         public async Task<ActionResult<BorrowRecordDTO>> ReturnBook(int borrowRecordId)
         {
-           var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-                var record = await _borrowRecordService.GetByIdAsync(borrowRecordId);
-                if (record == null)
-                    return NotFound();
-
-                if (!User.IsInRole("Admin") && record.UserId != userId)
-                    return Forbid();
-
-                var updatedRecord = await _borrowRecordService.ReturnBookAsync(borrowRecordId);
-                return Ok(updatedRecord);
+            var updatedRecord = await _borrowRecordService.ReturnBookAsync(borrowRecordId);
+            return Ok(updatedRecord);
         }
-
     }
 }

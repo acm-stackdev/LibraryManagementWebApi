@@ -79,8 +79,8 @@ public class BorrowRecordService : IBorrowRecordService
         var borrowRecord = new BorrowRecord{
             UserId = userId,
             BookId = bookId,
-            BorrowDate = DateTime.Now,
-            DueDate = DateTime.Now.AddDays(subscription.BorrowDurationDays),
+            BorrowDate = DateTime.UtcNow,
+            DueDate = DateTime.UtcNow.AddDays(subscription.BorrowDurationDays),
         };
 
         _context.BorrowRecords.Add(borrowRecord);
@@ -102,7 +102,7 @@ public class BorrowRecordService : IBorrowRecordService
         if (record.ReturnDate != null)
             throw new Exception("Book has already been returned.");
 
-        record.ReturnDate = DateTime.Now;
+        record.ReturnDate = DateTime.UtcNow;
         _context.BorrowRecords.Update(record);
         await _context.SaveChangesAsync();
 

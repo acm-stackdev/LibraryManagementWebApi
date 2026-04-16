@@ -49,7 +49,7 @@ public class SubscriptionService : ISubscriptionService
             throw new Exception("User not found");
         }
 
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
         var subscription = await _context.Subscriptions
             .FirstOrDefaultAsync(s => s.UserId == dto.UserId);
 
@@ -126,7 +126,7 @@ public class SubscriptionService : ISubscriptionService
             return false;
         }
 
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
 
         if(subscription.EndDate < now)
         {
