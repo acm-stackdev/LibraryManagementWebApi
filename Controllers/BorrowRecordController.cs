@@ -26,7 +26,6 @@ namespace BackendApi.Controllers
         }
 
         // GET: api/BorrowRecord
-        // Returns ONLY the logged-in user's borrow history (User or Admin)
         [HttpGet]
         public async Task<ActionResult<IEnumerable<BorrowRecordDTO>>> GetMyBorrowRecords()
         {
@@ -38,22 +37,12 @@ namespace BackendApi.Controllers
         }
 
         // GET: api/BorrowRecord/admin/all
-        // Admin only: View all borrowing history in the system
         [HttpGet("admin/all")]
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult<IEnumerable<BorrowRecordDTO>>> GetAllBorrowRecords()
         {
             var allRecords = await _borrowRecordService.GetAllAsync();
             return Ok(allRecords);
-        }
-
-        // GET: api/BorrowRecord/user/{userId}
-        [HttpGet("user/{userId}")]
-        [Authorize(Roles = "Admin")]
-        public async Task<ActionResult<IEnumerable<BorrowRecordDTO>>> GetUserBorrowRecords(string userId)
-        {
-            var records = await _borrowRecordService.GetBorrowRecordsByUserIdAsync(userId);
-            return Ok(records);
         }
 
         // GET: api/BorrowRecord/{id}
@@ -66,7 +55,6 @@ namespace BackendApi.Controllers
 
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            // Users can only see their own specific record; Admins see any.
             if (!User.IsInRole("Admin") && record.UserId != userId)
                 return Forbid();
 
@@ -74,21 +62,34 @@ namespace BackendApi.Controllers
         }
 
         // Post: api/BorrowRecord/borrow/{bookId}
+        // Removed Role requirement to allow custom error message from Service
         [HttpPost("borrow/{bookId}")]
-        [Authorize(Roles = "Member")]
         public async Task<ActionResult<BorrowRecordDTO>> BorrowBook(int bookId)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (userId == null) return Unauthorized();
 
+            // The Service will check for Subscription and throw an error message if invalid
             var record = await _borrowRecordService.BorrowBookAsync(userId, bookId);
             return Ok(record);
         }
 
         // Return: api/BorrowRecord/return/5
+        // Allow BOTH Admin and the Owner to return the book
         [HttpDelete("return/{borrowRecordId}")]
         public async Task<ActionResult<BorrowRecordDTO>> ReturnBook(int borrowRecordId)
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null) return Unauthorized();
+
+            var record = await _borrowRecordService.GetByIdAsync(borrowRecordId);
+            if (record == null)
+                return NotFound();
+
+            // Permission Check: Must be Admin OR the person who borrowed it
+            if (!User.IsInRole("Admin") && record.UserId != userId)
+                return Forbid();
+
             var updatedRecord = await _borrowRecordService.ReturnBookAsync(borrowRecordId);
             return Ok(updatedRecord);
         }
